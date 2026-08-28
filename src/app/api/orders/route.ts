@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendEmail } from '@/lib/email'
+import { orderConfirmationHtml, orderConfirmationText } from '@/lib/emailTemplates'
 import type { Address, PaymentMode } from '@/types'
 
 interface CreateOrderBody {
@@ -173,6 +175,45 @@ export async function POST(request: Request) {
 
     // Clear the user's server-side cart.
     await admin.from('cart_items').delete().eq('user_id', user.id)
+
+    // Best-effort confirmation email — never blocks or fails the order.
+    // user.email is the auth identity's email; falls back to the address's
+    // name for the greeting since email itself is optional at signup.
+    if (user.email) {
+      sendEmail({
+        to: { email: user.email, name: address.full_name },
+        subject: `Order Confirmed — #${order.order_number}`,
+        html: orderConfirmationHtml({
+          orderNumber: order.order_number,
+          customerName: address.full_name,
+          items: orderItems.map((i) => ({
+            name: i.product_name,
+            quantity: i.quantity,
+            lineTotal: i.line_total,
+          })),
+          subtotal: order.subtotal,
+          deliveryCharge: order.delivery_charge,
+          total: order.total,
+          paymentMode: order.payment_mode,
+          orderId: order.id,
+        }),
+        text: orderConfirmationText({
+          orderNumber: order.order_number,
+          customerName: address.full_name,
+          items: orderItems.map((i) => ({
+            name: i.product_name,
+            quantity: i.quantity,
+            lineTotal: i.line_total,
+          })),
+          subtotal: order.subtotal,
+          deliveryCharge: order.delivery_charge,
+          total: order.total,
+          paymentMode: order.payment_mode,
+          orderId: order.id,
+        }),
+        context: 'order-confirmation',
+      }).catch(() => {})
+    }
 
     return NextResponse.json({ order })
   } catch {

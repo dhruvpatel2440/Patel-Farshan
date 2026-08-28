@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { sendEmail } from '@/lib/email'
 
 interface ContactBody {
   name: string
@@ -14,38 +15,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Please fill all required fields.' }, { status: 400 })
   }
 
-  const apiKey = process.env.RESEND_API_KEY
-  // The verified sender identity Resend actually accepts mail "from".
-  // Free/unverified Resend accounts can only send from this address —
-  // sending from an unverified custom domain (e.g. a Gmail address)
-  // is rejected with a 403.
-  const fromEmail = process.env.RESEND_FROM_ADDRESS || 'Patel Farsan <onboarding@resend.dev>'
-  // Where the shop actually reads contact-form submissions.
-  const toEmail = process.env.RESEND_FROM_EMAIL
+  // Where the shop actually reads contact-form submissions — separate from
+  // BREVO_SENDER_EMAIL (the "from" identity Brevo has verified) in case the
+  // shop wants form replies to land somewhere other than the sender inbox.
+  const toEmail = process.env.CONTACT_TO_EMAIL || process.env.BREVO_SENDER_EMAIL
 
-  if (apiKey && toEmail) {
-    try {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: toEmail,
-          subject: `[Contact Form] ${body.subject || 'New message'} — ${body.name}`,
-          text: `Name: ${body.name}\nPhone: ${body.phone}\nSubject: ${body.subject}\n\n${body.message}`,
-        }),
-      })
-      if (!res.ok) throw new Error('Resend request failed')
-    } catch {
-      // Fall through — still report success to the visitor; admin can
-      // follow up via WhatsApp/phone if email delivery failed.
+  if (toEmail) {
+    const escaped = {
+      name: escapeHtml(body.name),
+      phone: escapeHtml(body.phone),
+      subject: escapeHtml(body.subject || 'New message'),
+      message: escapeHtml(body.message).replace(/\n/g, '<br />'),
     }
+
+    await sendEmail({
+      to: { email: toEmail },
+      subject: `[Contact Form] ${body.subject || 'New message'} — ${body.name}`,
+      text: `Name: ${body.name}\nPhone: ${body.phone}\nSubject: ${body.subject}\n\n${body.message}`,
+      html: `
+        <div style="font-family:Georgia,serif;color:#3d110e;">
+          <p><strong>Name:</strong> ${escaped.name}</p>
+          <p><strong>Phone:</strong> ${escaped.phone}</p>
+          <p><strong>Subject:</strong> ${escaped.subject}</p>
+          <p><strong>Message:</strong></p>
+          <p>${escaped.message}</p>
+        </div>`,
+      context: 'contact-form',
+    })
   }
 
-  // Without RESEND_API_KEY configured, the form still "succeeds" — the
-  // shop primarily follows up over WhatsApp/phone.
+  // Even without email configured, the form still "succeeds" — the shop
+  // primarily follows up over WhatsApp/phone.
   return NextResponse.json({ ok: true })
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
