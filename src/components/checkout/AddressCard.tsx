@@ -30,12 +30,7 @@ export function AddressCard({ address, isSelected, onSelect, onEdit, onDelete }:
       )}
       <p className="font-semibold text-maroon">{address.full_name}</p>
       <p className="text-sm text-stone-600">+91 {address.phone}</p>
-      <p className="mt-1 text-sm text-stone-600">
-        {address.address_line}, {address.area}
-      </p>
-      <p className="text-sm text-stone-600">
-        {address.city?.name} — {address.pincode}
-      </p>
+      <p className="mt-1 text-sm text-stone-600">Bus pickup — {address.city?.name}</p>
 
       {(onEdit || onDelete) && (
         <div className="mt-2 flex gap-4">

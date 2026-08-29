@@ -250,7 +250,7 @@ export default function CheckoutPage() {
               <div className="card-base space-y-3 p-4">
                 <p className="text-sm text-stone-600">
                   Delivering to: <span className="font-semibold text-maroon">{selectedAddress.full_name}</span>,{' '}
-                  {selectedAddress.address_line}, {city?.name}
+                  bus pickup at {city?.name}
                 </p>
 
                 <div className="space-y-2">

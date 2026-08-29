@@ -236,7 +236,7 @@ export async function POST(request: Request) {
         })),
         total: order.total,
         paymentMode: order.payment_mode,
-        address: `${address.address_line}, ${address.area}, ${city.name} — ${address.pincode}`,
+        address: `Bus pickup — ${city.name}`,
         orderId: order.id,
       }
       sendEmail({

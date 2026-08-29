@@ -53,8 +53,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             <p className="text-sm">{order.profile?.name}</p>
             <p className="text-sm text-stone-500">{order.profile?.phone}</p>
             <p className="mt-2 text-sm text-stone-600">
-              {order.address_snapshot?.address_line}, {order.address_snapshot?.area},{' '}
-              {order.address_snapshot?.city?.name} — {order.address_snapshot?.pincode}
+              Bus pickup — {order.address_snapshot?.city?.name}
             </p>
           </div>
           <div>

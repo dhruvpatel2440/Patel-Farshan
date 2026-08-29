@@ -80,12 +80,7 @@ export default function OrderTrackingPage({ params }: TrackingPageProps) {
           📍 Delivery Address
         </p>
         <p className="text-sm text-stone-700">{address?.full_name}</p>
-        <p className="text-sm text-stone-600">
-          {address?.address_line}, {address?.area}
-        </p>
-        <p className="text-sm text-stone-600">
-          {address?.city?.name} — {address?.pincode}
-        </p>
+        <p className="text-sm text-stone-600">Bus pickup — {address?.city?.name}</p>
       </div>
 
       <div className="card-base mt-4 p-5">

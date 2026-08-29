@@ -235,8 +235,7 @@ export default function AdminOrdersPage() {
                         <Phone className="h-3 w-3" /> {order.profile?.phone}
                       </a>
                       <p className="mt-2 text-sm text-stone-600">
-                        {order.address_snapshot?.address_line}, {order.address_snapshot?.area},{' '}
-                        {order.address_snapshot?.city?.name} — {order.address_snapshot?.pincode}
+                        Bus pickup — {order.address_snapshot?.city?.name}
                       </p>
 
                       <p className="mt-3 text-xs font-semibold uppercase text-stone-400">Items</p>

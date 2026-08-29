@@ -1,7 +1,6 @@
 import { z } from 'zod'
 
 const phoneRegex = /^[6-9]\d{9}$/
-const pincodeRegex = /^\d{6}$/
 
 export const registerSchema = z
   .object({
@@ -33,10 +32,10 @@ export type LoginInput = z.infer<typeof loginSchema>
 export const addressSchema = z.object({
   full_name: z.string().trim().min(2, 'Enter full name'),
   phone: z.string().regex(phoneRegex, 'Enter a valid 10-digit mobile number'),
-  address_line: z.string().trim().min(3, 'Enter your flat / house / building'),
-  area: z.string().trim().min(2, 'Enter your area / street / landmark'),
+  address_line: z.string().trim().optional(),
+  area: z.string().trim().optional(),
   city_id: z.string().uuid('Select a city'),
-  pincode: z.string().regex(pincodeRegex, 'Enter a valid 6-digit pincode'),
+  pincode: z.string().trim().optional(),
   is_default: z.boolean().optional(),
 })
 

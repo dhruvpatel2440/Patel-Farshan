@@ -83,22 +83,16 @@ export function AddressForm({
         {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
       </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-stone-700">
-          Flat / House / Building
-        </label>
-        <input {...register('address_line')} className="input-base" placeholder="B-12, Shreeji Apartments" />
-        {errors.address_line && (
-          <p className="mt-1 text-xs text-red-600">{errors.address_line.message}</p>
-        )}
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-stone-700">
-          Area / Street / Landmark
-        </label>
-        <input {...register('area')} className="input-base" placeholder="Near Station Road" />
-        {errors.area && <p className="mt-1 text-xs text-red-600">{errors.area.message}</p>}
+      <div className="rounded-lg border border-green-300 bg-green-50 p-3 text-xs text-green-800">
+        <p>
+          <span className="font-semibold">Note:</span> The parcel will be delivered only to the
+          cities mentioned below by bus, and you will have to collect the parcel directly from the
+          bus.
+        </p>
+        <p className="mt-1">
+          <span className="font-semibold">નોંધ:</span> પાર્સલ નીચે જણાવેલી શહેરોમાં જ બસ દ્વારા
+          મોકલવામાં આવશે અને તમારે પાર્સલ બસમાંથી જાતે જ લેવાનું રહેશે.
+        </p>
       </div>
 
       <div>
@@ -127,18 +121,6 @@ export function AddressForm({
             {diff.toFixed(0)} more.
           </div>
         )}
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-stone-700">Pincode</label>
-        <input
-          {...register('pincode')}
-          inputMode="numeric"
-          maxLength={6}
-          className="input-base"
-          placeholder="388001"
-        />
-        {errors.pincode && <p className="mt-1 text-xs text-red-600">{errors.pincode.message}</p>}
       </div>
 
       <label className="flex items-center gap-2 text-sm text-stone-600">
