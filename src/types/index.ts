@@ -146,6 +146,9 @@ export interface AuditLog {
   ip: string | null
   user_agent: string | null
   metadata: Record<string, unknown> | null
+  /** Rebuilt from existing records rather than measured live — no timing. */
+  is_reconstructed: boolean
+  source_ref: string | null
   created_at: string
 }
 

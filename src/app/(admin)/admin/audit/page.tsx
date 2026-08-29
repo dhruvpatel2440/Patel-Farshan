@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { ChevronDown, ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Download, RefreshCw, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { AuditLog } from '@/types'
 
@@ -64,6 +65,7 @@ export default function AdminAuditPage() {
   const [searchInput, setSearchInput] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showTimings, setShowTimings] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -86,6 +88,29 @@ export default function AdminAuditPage() {
     load()
   }, [load])
 
+  async function handleImport() {
+    setImporting(true)
+    try {
+      const res = await fetch('/api/admin/audit/import', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Could not rebuild history.')
+        return
+      }
+      if (data.imported > 0) {
+        toast.success(`Recovered ${data.imported} past activity record${data.imported === 1 ? '' : 's'}.`)
+        setPage(0)
+        await load()
+      } else {
+        toast(`Nothing new — all ${data.found} recoverable records are already here.`)
+      }
+    } catch {
+      toast.error('Network error while rebuilding history.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
 
   return (
@@ -97,13 +122,24 @@ export default function AdminAuditPage() {
             Every admin action — who did it, what changed, and how long it took.
           </p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="btn-outline flex items-center gap-1.5 !py-2 text-sm disabled:opacity-50"
-        >
-          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleImport}
+            disabled={importing}
+            className="btn-outline flex items-center gap-1.5 !py-2 text-sm disabled:opacity-50"
+            title="Rebuild past activity from order history and existing records"
+          >
+            <Download className={cn('h-4 w-4', importing && 'animate-pulse')} />
+            {importing ? 'Rebuilding…' : 'Rebuild history'}
+          </button>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="btn-outline flex items-center gap-1.5 !py-2 text-sm disabled:opacity-50"
+          >
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Summary */}
@@ -139,7 +175,7 @@ export default function AdminAuditPage() {
               >
                 {stats.failures}
               </p>
-              <p className="text-xs text-stone-400">of last {stats.sampleSize}</p>
+              <p className="text-xs text-stone-400">of last {stats.sampleSize} timed</p>
             </div>
           </div>
 
@@ -152,6 +188,9 @@ export default function AdminAuditPage() {
               >
                 <span className="text-sm font-semibold text-stone-700">
                   Time taken by each process
+                  <span className="ml-2 font-normal text-xs text-stone-400">
+                    live-measured actions only
+                  </span>
                 </span>
                 <ChevronDown
                   className={cn(
@@ -306,10 +345,16 @@ export default function AdminAuditPage() {
                     {log.error && <p className="mt-0.5 text-xs text-red-600">{log.error}</p>}
                     {expandedId === log.id && (
                       <div className="mt-2 space-y-0.5 rounded-lg bg-stone-50 p-2 text-xs text-stone-500">
-                        <p>
-                          {log.method} {log.path}
-                          {log.status_code ? ` → ${log.status_code}` : ''}
-                        </p>
+                        {log.is_reconstructed ? (
+                          <p className="text-stone-400">
+                            Rebuilt from existing records — the original request was never timed.
+                          </p>
+                        ) : (
+                          <p>
+                            {log.method} {log.path}
+                            {log.status_code ? ` → ${log.status_code}` : ''}
+                          </p>
+                        )}
                         {log.entity_type && (
                           <p>
                             {log.entity_type}
@@ -323,8 +368,14 @@ export default function AdminAuditPage() {
                       </div>
                     )}
                   </td>
-                  <td className={cn('whitespace-nowrap p-3', durationStyle(log.duration_ms))}>
-                    {formatDuration(log.duration_ms)}
+                  <td
+                    className={cn(
+                      'whitespace-nowrap p-3',
+                      log.is_reconstructed ? 'text-stone-300' : durationStyle(log.duration_ms)
+                    )}
+                    title={log.is_reconstructed ? 'Rebuilt from records — not timed at the time' : undefined}
+                  >
+                    {log.is_reconstructed ? '—' : formatDuration(log.duration_ms)}
                   </td>
                   <td className="p-3">
                     <span

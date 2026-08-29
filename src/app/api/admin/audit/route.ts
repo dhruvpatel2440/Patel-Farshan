@@ -39,15 +39,21 @@ export async function GET(request: Request) {
   const { data: logs, count, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
-  // Recent sample powers both the action filter list and the timing rollup.
-  const { data: sample } = await admin
-    .from('audit_logs')
-    .select('action, duration_ms, status, created_at')
-    .order('created_at', { ascending: false })
-    .limit(STATS_SAMPLE)
+  // Timing stats come only from live-measured rows. Backfilled history has no
+  // duration (nothing timed it), so including it would drag every average
+  // toward zero and make the numbers meaningless.
+  const [{ data: sample }, { data: allActions }] = await Promise.all([
+    admin
+      .from('audit_logs')
+      .select('action, duration_ms, status, created_at')
+      .eq('is_reconstructed', false)
+      .order('created_at', { ascending: false })
+      .limit(STATS_SAMPLE),
+    admin.from('audit_logs').select('action'),
+  ])
 
   const rows = sample ?? []
-  const actions = [...new Set(rows.map((r) => r.action))].sort()
+  const actions = [...new Set((allActions ?? []).map((r) => r.action))].sort()
 
   // Per-action timing, so the admin can see which operations are slow.
   const grouped = new Map<string, { count: number; total: number; max: number; failures: number }>()
@@ -71,8 +77,14 @@ export async function GET(request: Request) {
     .sort((a, b) => b.avgMs - a.avgMs)
 
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  const last24h = rows.filter((r) => r.created_at >= dayAgo)
   const durations = rows.map((r) => r.duration_ms).sort((a, b) => a - b)
+
+  // Counted across everything, backfilled history included — this answers
+  // "what happened recently", not "what did we time".
+  const { count: last24h } = await admin
+    .from('audit_logs')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', dayAgo)
 
   return NextResponse.json({
     logs: logs ?? [],
@@ -82,7 +94,7 @@ export async function GET(request: Request) {
     actions,
     stats: {
       sampleSize: rows.length,
-      last24h: last24h.length,
+      last24h: last24h ?? 0,
       failures: rows.filter((r) => r.status !== 'success').length,
       avgMs: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0,
       p95Ms: durations.length ? durations[Math.floor(durations.length * 0.95)] ?? 0 : 0,
