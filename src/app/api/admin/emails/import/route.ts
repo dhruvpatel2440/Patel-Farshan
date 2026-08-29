@@ -2,16 +2,27 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-const BREVO_PAGE_SIZE = 500
-const MAX_PAGES = 20
+const BREVO_PAGE_SIZE = 100
+const MAX_PAGES = 100
 
-interface BrevoEmail {
+interface BrevoEvent {
   email?: string
   subject?: string
   messageId?: string
-  uuid?: string
   date?: string
+  event?: string
+  reason?: string
 }
+
+/** Brevo events that mean the email never landed. */
+const FAILURE_EVENTS = new Set([
+  'hardBounces',
+  'softBounces',
+  'blocked',
+  'invalid',
+  'error',
+  'spam',
+])
 
 /**
  * Our email subjects are deterministic, so the original context can be
@@ -32,12 +43,16 @@ function inferContext(subject: string): string {
 }
 
 /**
- * Backfills email_logs from Brevo's own transactional history.
+ * Backfills email_logs from Brevo's own event history.
  *
  * The audit table only captures sends made after it existed; this recovers
  * everything before that. Rows are keyed on Brevo's messageId, so re-running
  * the import is safe and never duplicates — including against sends this app
  * logged itself.
+ *
+ * Brevo emits several events per email (requests, delivered, opened, …), so
+ * events are collapsed by messageId, with any failure event winning over the
+ * send itself.
  */
 export async function POST() {
   const auth = await requireAdmin()
@@ -48,21 +63,14 @@ export async function POST() {
     return NextResponse.json({ error: 'BREVO_API_KEY is not set on the server.' }, { status: 400 })
   }
 
-  const admin = createAdminClient()
-  const rows: {
-    context: string
-    recipient_email: string
-    recipient_name: null
-    subject: string
-    status: 'sent'
-    error: null
-    created_at: string
-    provider_message_id: string
-  }[] = []
+  const byMessageId = new Map<
+    string,
+    { email: string; subject: string; date: string; status: 'sent' | 'failed'; error: string | null }
+  >()
 
   try {
     for (let page = 0; page < MAX_PAGES; page++) {
-      const url = new URL('https://api.brevo.com/v3/smtp/emails')
+      const url = new URL('https://api.brevo.com/v3/smtp/statistics/events')
       url.searchParams.set('limit', String(BREVO_PAGE_SIZE))
       url.searchParams.set('offset', String(page * BREVO_PAGE_SIZE))
       url.searchParams.set('sort', 'desc')
@@ -80,22 +88,34 @@ export async function POST() {
       }
 
       const data = await res.json()
-      const batch: BrevoEmail[] = data.transactionalEmails ?? []
+      const batch: BrevoEvent[] = data.events ?? []
       if (batch.length === 0) break
 
       for (const item of batch) {
-        const messageId = item.messageId ?? item.uuid
+        const messageId = item.messageId
         if (!messageId || !item.email) continue
-        const subject = item.subject ?? '(no subject)'
-        rows.push({
-          context: inferContext(subject),
-          recipient_email: item.email,
-          recipient_name: null,
-          subject,
-          status: 'sent',
-          error: null,
-          created_at: item.date ? new Date(item.date).toISOString() : new Date().toISOString(),
-          provider_message_id: messageId,
+
+        const isFailure = FAILURE_EVENTS.has(item.event ?? '')
+        const existing = byMessageId.get(messageId)
+
+        // A failure event outranks the send; otherwise keep the earliest
+        // (oldest) timestamp seen, which is when the email actually went out.
+        if (existing) {
+          if (isFailure && existing.status !== 'failed') {
+            existing.status = 'failed'
+            existing.error = item.reason ?? item.event ?? 'Delivery failed'
+          }
+          if (item.date && item.date < existing.date) existing.date = item.date
+          if (existing.subject === '(no subject)' && item.subject) existing.subject = item.subject
+          continue
+        }
+
+        byMessageId.set(messageId, {
+          email: item.email,
+          subject: item.subject || '(no subject)',
+          date: item.date ?? new Date().toISOString(),
+          status: isFailure ? 'failed' : 'sent',
+          error: isFailure ? (item.reason ?? item.event ?? 'Delivery failed') : null,
         })
       }
 
@@ -108,9 +128,22 @@ export async function POST() {
     )
   }
 
-  if (rows.length === 0) {
+  if (byMessageId.size === 0) {
     return NextResponse.json({ imported: 0, found: 0 })
   }
+
+  const rows = [...byMessageId.entries()].map(([messageId, e]) => ({
+    context: inferContext(e.subject),
+    recipient_email: e.email,
+    recipient_name: null,
+    subject: e.subject,
+    status: e.status,
+    error: e.error,
+    created_at: new Date(e.date).toISOString(),
+    provider_message_id: messageId,
+  }))
+
+  const admin = createAdminClient()
 
   // ignoreDuplicates leans on the unique index over provider_message_id, so
   // already-known emails are skipped instead of overwriting our own richer
