@@ -54,7 +54,7 @@ export function Footer() {
             <ul className="space-y-3 text-sm text-cream/70">
               <li className="flex items-start gap-2">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-                Anand, Gujarat, India
+                Patel Farsan, Mota Gunda, Bhanvad, Dwarka — 360510
               </li>
               {SHOP_PHONE && (
                 <li className="flex items-center gap-2">

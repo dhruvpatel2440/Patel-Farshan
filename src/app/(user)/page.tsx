@@ -133,8 +133,18 @@ export default async function LandingPage() {
                   href={`/products?category=${cat.id}`}
                   className="group flex w-[4.5rem] flex-col items-center gap-2 text-center sm:w-24 lg:w-28"
                 >
-                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-maroon text-2xl text-cream ring-0 ring-gold transition-all duration-200 group-hover:scale-105 group-hover:ring-4 lg:h-20 lg:w-20 lg:text-3xl">
-                    {CATEGORY_EMOJI[cat.name] ?? '🍛'}
+                  <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-maroon text-2xl text-cream ring-0 ring-gold transition-all duration-200 group-hover:scale-105 group-hover:ring-4 lg:h-20 lg:w-20 lg:text-3xl">
+                    {cat.image_url ? (
+                      <Image
+                        src={cat.image_url}
+                        alt={cat.name}
+                        fill
+                        sizes="(min-width: 1024px) 5rem, 4rem"
+                        className="object-cover"
+                      />
+                    ) : (
+                      CATEGORY_EMOJI[cat.name] ?? '🍛'
+                    )}
                   </span>
                   <span className="font-gujarati text-xs font-semibold leading-tight text-maroon">
                     {cat.name_gujarati}

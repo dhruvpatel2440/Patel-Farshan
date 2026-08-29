@@ -5,7 +5,7 @@ import { CheckCircle2, Mail, MapPin, MessageCircle, Phone } from 'lucide-react'
 import { OrnamentalDivider } from '@/components/shared/OrnamentalDivider'
 import { SHOP_PHONE, SHOP_WHATSAPP } from '@/lib/constants'
 
-const SHOP_ADDRESS = 'Patel Farsan, Main Market, Anand, Gujarat — 388001'
+const SHOP_ADDRESS = 'Patel Farsan, Mota Gunda, Bhanvad, Dwarka — 360510'
 const SHOP_EMAIL = 'patelfarsan@gmail.com'
 const MAPS_URL = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(SHOP_ADDRESS)}`
 

@@ -1,6 +1,8 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { OrnamentalDivider } from '@/components/shared/OrnamentalDivider'
+import { getActiveCities } from '@/lib/data'
 
 export const metadata: Metadata = {
   title: 'About Us',
@@ -25,20 +27,24 @@ const VALUE_CARDS = [
   },
 ]
 
-const NUMBERS = [
-  { value: '1985', label: 'Since' },
-  { value: '40+', label: 'Recipes' },
-  { value: '4', label: 'Cities' },
-  { value: 'Daily', label: 'Fresh' },
-]
-
 const VALUES = [
   'No artificial colors or preservatives',
   'Prepared in a hygienic, certified kitchen',
   'Ingredients sourced fresh every morning',
 ]
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const cities = await getActiveCities()
+
+  const numbers = [
+    { value: '1985', label: 'Since' },
+    { value: '40+', label: 'Recipes' },
+    // Reflects the cities actually configured in the admin panel, rather
+    // than a number that goes stale the moment delivery areas change.
+    { value: String(cities.length), label: cities.length === 1 ? 'City' : 'Cities' },
+    { value: 'Daily', label: 'Fresh' },
+  ]
+
   return (
     <div className="bg-cream">
       {/* Hero */}
@@ -58,8 +64,20 @@ export default function AboutPage() {
       <section className="mx-auto max-w-4xl px-4 pb-14 md:pb-20">
         <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
           <div className="mx-auto flex flex-col items-center">
-            <div className="flex h-64 w-64 items-center justify-center rounded-2xl border-4 border-gold bg-gradient-to-br from-cream to-gold/40 text-7xl md:h-[400px] md:w-[400px]">
-              🏪
+            <div className="flex h-64 w-64 items-center justify-center rounded-2xl bg-gradient-to-br from-maroon to-maroon-light shadow-lg md:h-[400px] md:w-[400px]">
+              {/* Cream seal keeps the logo on the background it was drawn
+                  for — see the matching section on the landing page for why
+                  the cut-out artwork can't sit directly on maroon. */}
+              <div className="flex h-[80%] w-[80%] items-center justify-center rounded-full bg-cream p-5 shadow-inner ring-1 ring-gold/40">
+                <Image
+                  src="/images/logo-mark.png"
+                  alt="Patel Farsan"
+                  width={1254}
+                  height={1254}
+                  sizes="(min-width: 768px) 22rem, 60vw"
+                  className="h-full w-full object-contain"
+                />
+              </div>
             </div>
             <p className="mt-3 font-serif text-sm font-semibold text-gold">Est. 1985</p>
           </div>
@@ -112,7 +130,7 @@ export default function AboutPage() {
       {/* Numbers strip */}
       <section className="bg-maroon-dark py-12">
         <div className="mx-auto grid max-w-4xl grid-cols-2 gap-6 px-4 text-center md:grid-cols-4">
-          {NUMBERS.map((n) => (
+          {numbers.map((n) => (
             <div key={n.label}>
               <p className="font-serif text-3xl font-bold text-gold md:text-4xl">{n.value}</p>
               <p className="mt-1 text-xs uppercase tracking-wide text-cream/70">{n.label}</p>
