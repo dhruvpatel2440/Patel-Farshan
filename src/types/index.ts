@@ -39,6 +39,7 @@ export interface City {
   name: string
   delivery_charge: number
   min_order_value: number
+  estimated_delivery_time?: string | null
   is_active: boolean
 }
 

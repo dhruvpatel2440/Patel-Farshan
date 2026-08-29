@@ -14,7 +14,13 @@ import {
 import type { City } from '@/types'
 import { Toggle } from '@/components/admin/Toggle'
 
-const EMPTY_FORM = { name: '', delivery_charge: '', min_order_value: '', is_active: true }
+const EMPTY_FORM = {
+  name: '',
+  delivery_charge: '',
+  min_order_value: '',
+  estimated_delivery_time: '',
+  is_active: true,
+}
 
 export default function AdminCitiesPage() {
   const [cities, setCities] = useState<City[]>([])
@@ -48,6 +54,7 @@ export default function AdminCitiesPage() {
       name: city.name,
       delivery_charge: String(city.delivery_charge),
       min_order_value: String(city.min_order_value),
+      estimated_delivery_time: city.estimated_delivery_time ?? '',
       is_active: city.is_active,
     })
     setFormOpen(true)
@@ -63,6 +70,7 @@ export default function AdminCitiesPage() {
       name: form.name,
       delivery_charge: Number(form.delivery_charge),
       min_order_value: Number(form.min_order_value),
+      estimated_delivery_time: form.estimated_delivery_time.trim() || null,
       is_active: form.is_active,
     }
     const res = await fetch('/api/admin/cities', {
@@ -123,6 +131,7 @@ export default function AdminCitiesPage() {
               <th className="p-3">City Name</th>
               <th className="p-3">Delivery Charge</th>
               <th className="p-3">Min Order</th>
+              <th className="p-3">Est. Delivery Time</th>
               <th className="p-3">Status</th>
               <th className="p-3">Actions</th>
             </tr>
@@ -130,13 +139,13 @@ export default function AdminCitiesPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-stone-400">
+                <td colSpan={6} className="p-6 text-center text-stone-400">
                   Loading…
                 </td>
               </tr>
             ) : cities.length === 0 ? (
               <tr>
-                <td colSpan={5} className="p-6 text-center text-stone-400">
+                <td colSpan={6} className="p-6 text-center text-stone-400">
                   No cities yet.
                 </td>
               </tr>
@@ -146,6 +155,7 @@ export default function AdminCitiesPage() {
                   <td className="p-3 font-semibold text-maroon">{city.name}</td>
                   <td className="p-3">₹{city.delivery_charge}</td>
                   <td className="p-3">₹{city.min_order_value}</td>
+                  <td className="p-3 text-stone-600">{city.estimated_delivery_time || '—'}</td>
                   <td className="p-3">
                     <Toggle
                       checked={city.is_active}
@@ -201,6 +211,17 @@ export default function AdminCitiesPage() {
                 min={0}
                 value={form.min_order_value}
                 onChange={(e) => setForm((f) => ({ ...f, min_order_value: e.target.value }))}
+                className="input-base"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">
+                Estimated Delivery Time
+              </label>
+              <input
+                value={form.estimated_delivery_time}
+                onChange={(e) => setForm((f) => ({ ...f, estimated_delivery_time: e.target.value }))}
+                placeholder="e.g. 1-2 days"
                 className="input-base"
               />
             </div>

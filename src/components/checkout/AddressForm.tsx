@@ -119,6 +119,9 @@ export function AddressForm({
           <div className="mt-2 rounded-lg border border-gold bg-amber-50 p-2 text-xs text-amber-800">
             🚚 Delivery to {selectedCity.name} — ₹{selectedCity.delivery_charge} · Min order ₹
             {selectedCity.min_order_value}
+            {selectedCity.estimated_delivery_time && (
+              <> · ETA {selectedCity.estimated_delivery_time}</>
+            )}
           </div>
         )}
         {selectedCity && !isMinOrderMet && (
