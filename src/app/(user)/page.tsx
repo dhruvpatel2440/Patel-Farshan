@@ -6,6 +6,8 @@ import { ProductCard } from '@/components/product/ProductCard'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { TestimonialMarquee } from '@/components/shared/TestimonialMarquee'
 import { getActiveCities, getApprovedFeedback, getCategories, getFeaturedProducts } from '@/lib/data'
+import { getGoogleReviews } from '@/lib/googleReviews'
+import type { Testimonial } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,12 +28,44 @@ const STEPS = [
 ]
 
 export default async function LandingPage() {
-  const [categories, featured, cities, testimonials] = await Promise.all([
+  const [categories, featured, cities, ourFeedback, googlePlace] = await Promise.all([
     getCategories(),
     getFeaturedProducts(8),
     getActiveCities(),
     getApprovedFeedback(),
+    getGoogleReviews(),
   ])
+
+  // Both sources feed the same marquee, most recent first, so a fresh Google
+  // review and a fresh customer review interleave naturally instead of
+  // appearing as two separate blocks.
+  const dated = [
+    ...ourFeedback.map((f) => ({
+      sortKey: new Date(f.created_at).getTime(),
+      testimonial: {
+        id: `feedback-${f.id}`,
+        source: 'customer' as const,
+        name: f.user_name,
+        photoUrl: null,
+        rating: f.rating,
+        message: f.message,
+      },
+    })),
+    ...googlePlace.reviews.map((r) => ({
+      sortKey: r.time,
+      testimonial: {
+        id: `google-${r.id}`,
+        source: 'google' as const,
+        name: r.authorName,
+        photoUrl: r.authorPhotoUrl,
+        rating: r.rating,
+        message: r.text || null,
+      },
+    })),
+  ]
+  const testimonials: Testimonial[] = dated
+    .sort((a, b) => b.sortKey - a.sortKey)
+    .map((d) => d.testimonial)
 
   return (
     <>

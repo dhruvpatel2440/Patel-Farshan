@@ -111,6 +111,30 @@ export interface CartItem {
   quantity: number
 }
 
+export interface GoogleReview {
+  id: string
+  authorName: string
+  authorPhotoUrl: string | null
+  rating: number
+  text: string
+  relativeTime: string
+  time: number
+}
+
+/**
+ * Common shape the landing-page marquee renders, regardless of whether the
+ * review came from our own customers (moderated) or Google's Places API
+ * (Google's own moderation, ungate-able on our end).
+ */
+export interface Testimonial {
+  id: string
+  source: 'customer' | 'google'
+  name: string
+  photoUrl: string | null
+  rating: number
+  message: string | null
+}
+
 export interface Feedback {
   id: string
   user_id: string
