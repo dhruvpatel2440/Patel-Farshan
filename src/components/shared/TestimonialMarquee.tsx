@@ -1,33 +1,17 @@
 import { StarRatingDisplay } from '@/components/shared/StarRatingDisplay'
-import { GoogleBadge } from '@/components/shared/GoogleBadge'
-import type { Testimonial } from '@/types'
+import type { Feedback } from '@/types'
 
-function TestimonialCard({ item }: { item: Testimonial }) {
-  const initial = item.name.trim().charAt(0).toUpperCase() || '?'
+function TestimonialCard({ item }: { item: Feedback }) {
+  const initial = item.user_name.trim().charAt(0).toUpperCase() || '?'
 
   return (
     <div className="flex w-72 shrink-0 flex-col gap-3 rounded-2xl border-2 border-maroon/15 bg-white p-5 shadow-sm sm:w-80">
       <div className="flex items-center gap-3">
-        {item.photoUrl ? (
-          // Google-hosted avatar with an unpredictable CDN host; not worth a
-          // next.config.ts remotePatterns entry for a handful of small icons.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.photoUrl}
-            alt=""
-            className="h-11 w-11 shrink-0 rounded-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-base font-bold text-maroon">
-            {initial}
-          </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <p className="truncate font-serif font-bold text-maroon">{item.name}</p>
-            {item.source === 'google' && <GoogleBadge className="h-3.5 w-3.5 shrink-0" />}
-          </div>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-base font-bold text-maroon">
+          {initial}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate font-serif font-bold text-maroon">{item.user_name}</p>
           <StarRatingDisplay rating={item.rating} />
         </div>
       </div>
@@ -40,7 +24,7 @@ function TestimonialCard({ item }: { item: Testimonial }) {
   )
 }
 
-export function TestimonialMarquee({ items }: { items: Testimonial[] }) {
+export function TestimonialMarquee({ items }: { items: Feedback[] }) {
   if (items.length === 0) return null
 
   // Duplicated so the track can loop seamlessly — see the marquee-ltr
