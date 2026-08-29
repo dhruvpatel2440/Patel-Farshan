@@ -306,7 +306,9 @@ export default function AccountPage() {
             </DialogTitle>
           </DialogHeader>
           <AddressForm
+            key={editingAddress?.id ?? 'new'}
             onSubmit={handleSaveAddress}
+            address={editingAddress}
             submitLabel={editingAddress ? 'Save Changes' : 'Add Address'}
           />
         </DialogContent>

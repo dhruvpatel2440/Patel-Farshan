@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { addressSchema, type AddressInput } from '@/lib/validations'
-import type { City } from '@/types'
+import type { Address, City } from '@/types'
 
 interface AddressFormProps {
   onSubmit: (values: AddressInput, city: City) => void
+  address?: Address | null
   submitLabel?: string
   isSubmitting?: boolean
   subtotal?: number
@@ -15,6 +16,7 @@ interface AddressFormProps {
 
 export function AddressForm({
   onSubmit,
+  address,
   submitLabel = 'Save Address',
   isSubmitting,
   subtotal = 0,
@@ -26,17 +28,18 @@ export function AddressForm({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<AddressInput>({
     resolver: zodResolver(addressSchema),
     defaultValues: {
-      full_name: '',
-      phone: '',
-      address_line: '',
-      area: '',
-      city_id: '',
-      pincode: '',
-      is_default: false,
+      full_name: address?.full_name ?? '',
+      phone: address?.phone ?? '',
+      address_line: address?.address_line ?? '',
+      area: address?.area ?? '',
+      city_id: address?.city_id ?? '',
+      pincode: address?.pincode ?? '',
+      is_default: address?.is_default ?? false,
     },
   })
 
@@ -48,10 +51,13 @@ export function AddressForm({
   useEffect(() => {
     fetch('/api/cities')
       .then((res) => res.json())
-      .then((data) => setCities(data.cities ?? []))
+      .then((data) => {
+        setCities(data.cities ?? [])
+        if (address?.city_id) setValue('city_id', address.city_id)
+      })
       .catch(() => setCities([]))
       .finally(() => setLoadingCities(false))
-  }, [])
+  }, [address?.city_id, setValue])
 
   function submit(values: AddressInput) {
     if (!selectedCity) return
