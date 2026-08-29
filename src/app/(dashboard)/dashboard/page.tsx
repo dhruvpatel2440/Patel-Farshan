@@ -59,8 +59,12 @@ export default function DashboardPage() {
       </div>
 
       <div className="mx-auto max-w-4xl px-4 py-8 md:px-6 md:py-10">
+        {/* Feedback banner — first thing on the page, not buried below the
+            order list, so it's the one thing every visitor sees. */}
+        <FeedbackForm />
+
         {/* Recent orders */}
-        <div className="flex items-center justify-between">
+        <div className="mt-8 flex items-center justify-between">
           <h2 className="section-title text-lg md:text-xl">Recent Orders</h2>
           {orders.length > 0 && (
             <Link href="/orders" className="flex items-center gap-1 text-sm font-semibold text-gold hover:text-gold-dark">
@@ -87,10 +91,6 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
-
-        <div className="mt-8">
-          <FeedbackForm />
-        </div>
       </div>
     </div>
   )

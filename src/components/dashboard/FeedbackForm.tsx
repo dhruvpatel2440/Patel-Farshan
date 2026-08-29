@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, MessageSquareHeart } from 'lucide-react'
+import { Loader2, MessageSquareHeart, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { StarRatingInput } from '@/components/shared/StarRatingInput'
 import { StarRatingDisplay } from '@/components/shared/StarRatingDisplay'
@@ -61,16 +61,31 @@ export function FeedbackForm() {
   const showForm = !existing || editing
 
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-4">
-      <div className="flex items-center gap-2">
-        <MessageSquareHeart className="h-5 w-5 text-gold" />
-        <h3 className="font-serif font-bold text-maroon">
-          {existing ? 'Your Feedback' : 'Rate Your Experience'}
-        </h3>
+    // A plain white bordered box here read as just another list item and got
+    // scrolled past — this is deliberately loud (maroon gradient, glowing
+    // icon badge, decorative circles) so it reads as a distinct, unmissable
+    // call to action rather than blending into the order cards around it.
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-maroon to-maroon-light p-5 shadow-lg md:p-6">
+      <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-gold/10" aria-hidden="true" />
+      <div className="pointer-events-none absolute -bottom-10 -left-6 h-28 w-28 rounded-full bg-gold/10" aria-hidden="true" />
+
+      <div className="relative flex items-center gap-3">
+        <span className="animate-status-glow flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold text-maroon">
+          <MessageSquareHeart className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="flex items-center gap-1.5 font-serif text-lg font-bold text-cream">
+            {existing ? 'Your Feedback' : "We'd Love Your Feedback!"}
+            {!existing && <Sparkles className="h-4 w-4 text-gold" />}
+          </h3>
+          {!existing && (
+            <p className="text-xs text-gold/90">Takes 10 seconds — great reviews get featured on our homepage</p>
+          )}
+        </div>
       </div>
 
       {!showForm && existing && (
-        <div className="mt-3">
+        <div className="relative mt-4 rounded-xl bg-cream p-4">
           <StarRatingDisplay rating={existing.rating} />
           {existing.message && (
             <p className="mt-2 text-sm italic text-stone-600">&ldquo;{existing.message}&rdquo;</p>
@@ -87,7 +102,7 @@ export function FeedbackForm() {
             </span>
             <button
               onClick={() => setEditing(true)}
-              className="text-xs font-semibold text-maroon hover:text-gold"
+              className="text-xs font-semibold text-maroon hover:text-gold-dark"
             >
               Edit
             </button>
@@ -96,7 +111,7 @@ export function FeedbackForm() {
       )}
 
       {showForm && (
-        <div className="mt-3 space-y-3">
+        <div className="relative mt-4 space-y-3 rounded-xl bg-cream p-4">
           <p className="text-sm text-stone-500">
             How was your experience with Patel Farsan? Approved reviews are shown on our
             homepage.
@@ -107,7 +122,7 @@ export function FeedbackForm() {
             onChange={(e) => setMessage(e.target.value)}
             maxLength={500}
             placeholder="Tell us what you liked (optional)…"
-            className="input-base min-h-20 resize-none"
+            className="input-base min-h-20 resize-none bg-white"
           />
           <div className="flex gap-2">
             <button
