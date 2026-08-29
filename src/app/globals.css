@@ -260,6 +260,24 @@
   display: none;
 }
 
+/* A visible-but-unobtrusive scrollbar for internal lists (e.g. the
+   feedback-history panel) — unlike .scrollbar-hide, keeping it visible here
+   is the point: it's the cue that there's more to scroll to. */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-maroon) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--color-maroon) 30%, transparent);
+  border-radius: 9999px;
+}
+
 @keyframes status-glow {
   0% {
     box-shadow: 0 0 0 0 rgba(201, 154, 46, 0.4);
