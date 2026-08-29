@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withAudit, setAuditTarget } from '@/lib/audit'
 import { CATALOG_TAG } from '@/lib/data'
 
 export async function GET() {
@@ -14,7 +15,7 @@ export async function GET() {
   return NextResponse.json({ cities: data })
 }
 
-export async function POST(request: Request) {
+export const POST = withAudit('city.create', async (request: Request) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -22,11 +23,12 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const { data, error } = await admin.from('cities').insert(body).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  setAuditTarget({ entityType: 'city', entityId: data.id, summary: `Added delivery city "${data.name}"` })
   revalidateTag(CATALOG_TAG, { expire: 0 })
   return NextResponse.json({ city: data })
-}
+})
 
-export async function PUT(request: Request) {
+export const PUT = withAudit('city.update', async (request: Request) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -36,17 +38,24 @@ export async function PUT(request: Request) {
   const admin = createAdminClient()
   const { data, error } = await admin.from('cities').update(body).eq('id', id).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  setAuditTarget({
+    entityType: 'city',
+    entityId: id,
+    summary: `Updated city "${data.name}"`,
+    metadata: { fields: Object.keys(body) },
+  })
   revalidateTag(CATALOG_TAG, { expire: 0 })
   return NextResponse.json({ city: data })
-}
+})
 
-export async function DELETE(request: Request) {
+export const DELETE = withAudit('city.delete', async (request: Request) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'City id is required.' }, { status: 400 })
+  setAuditTarget({ entityType: 'city', entityId: id })
 
   const admin = createAdminClient()
 
@@ -64,6 +73,7 @@ export async function DELETE(request: Request) {
 
   const { error } = await admin.from('cities').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  setAuditTarget({ summary: 'Deleted delivery city' })
   revalidateTag(CATALOG_TAG, { expire: 0 })
   return NextResponse.json({ ok: true })
-}
+})

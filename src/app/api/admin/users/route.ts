@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withAudit, setAuditTarget } from '@/lib/audit'
 
 /**
  * Every customer, with their order history rolled up.
@@ -58,7 +59,7 @@ export async function GET() {
  * Orders deliberately do NOT cascade, so a customer with order history cannot
  * be removed — that history is the shop's revenue record.
  */
-export async function DELETE(request: Request) {
+export const DELETE = withAudit('user.delete', async (request: Request) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -66,6 +67,7 @@ export async function DELETE(request: Request) {
   const id = searchParams.get('id')
 
   if (!id) return NextResponse.json({ error: 'User id is required.' }, { status: 400 })
+  setAuditTarget({ entityType: 'user', entityId: id })
 
   if (id === auth.user.id) {
     return NextResponse.json({ error: 'You cannot delete your own account.' }, { status: 400 })
@@ -119,5 +121,6 @@ export async function DELETE(request: Request) {
   const { error } = await admin.auth.admin.deleteUser(id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+  setAuditTarget({ summary: `Deleted user account "${profile.name}"` })
   return NextResponse.json({ success: true })
-}
+})

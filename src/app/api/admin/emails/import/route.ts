@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redactSubject } from '@/lib/email'
+import { withAudit, setAuditTarget } from '@/lib/audit'
 
 const BREVO_PAGE_SIZE = 100
 const MAX_PAGES = 100
@@ -55,7 +56,7 @@ function inferContext(subject: string): string {
  * events are collapsed by messageId, with any failure event winning over the
  * send itself.
  */
-export async function POST() {
+export const POST = withAudit('email.import_history', async () => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -165,5 +166,9 @@ export async function POST() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+  setAuditTarget({
+    summary: `Imported ${count ?? 0} email(s) from Brevo history`,
+    metadata: { imported: count ?? 0, found: rows.length },
+  })
   return NextResponse.json({ imported: count ?? 0, found: rows.length })
-}
+})

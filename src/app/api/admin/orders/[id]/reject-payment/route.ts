@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withAudit, setAuditTarget } from '@/lib/audit'
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withAudit(
+  'order.payment_reject',
+  async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -12,6 +15,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { data: order } = await admin.from('orders').select('*').eq('id', id).single()
   if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+
+  setAuditTarget({
+    entityType: 'order',
+    entityId: order.order_number,
+    summary: `Rejected payment for #${order.order_number}`,
+    metadata: note ? { note } : undefined,
+  })
 
   await admin.from('orders').update({ payment_status: 'failed' }).eq('id', id)
 
@@ -23,4 +33,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   })
 
   return NextResponse.json({ ok: true })
-}
+  }
+)

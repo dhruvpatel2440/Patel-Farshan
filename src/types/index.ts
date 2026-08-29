@@ -126,6 +126,29 @@ export interface CartItem {
   quantity: number
 }
 
+export type AuditStatus = 'success' | 'failure' | 'error'
+
+export interface AuditLog {
+  id: string
+  action: string
+  actor_id: string | null
+  actor_name: string | null
+  actor_email: string | null
+  entity_type: string | null
+  entity_id: string | null
+  summary: string | null
+  status: AuditStatus
+  status_code: number | null
+  duration_ms: number
+  error: string | null
+  method: string | null
+  path: string | null
+  ip: string | null
+  user_agent: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+}
+
 export type EmailStatus = 'sent' | 'failed' | 'skipped'
 
 export interface EmailLog {

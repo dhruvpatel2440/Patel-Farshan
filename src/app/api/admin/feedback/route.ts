@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { withAudit, setAuditTarget } from '@/lib/audit'
 import { FEEDBACK_TAG } from '@/lib/data'
 
 export async function GET() {
@@ -19,7 +20,7 @@ export async function GET() {
 }
 
 /** Approve or reject one piece of feedback. Rejecting deletes it outright. */
-export async function PATCH(request: Request) {
+export const PATCH = withAudit('feedback.moderate', async (request: Request) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -27,6 +28,11 @@ export async function PATCH(request: Request) {
   if (!id) return NextResponse.json({ error: 'Feedback id is required.' }, { status: 400 })
 
   const admin = createAdminClient()
+  setAuditTarget({
+    entityType: 'feedback',
+    entityId: id,
+    summary: approve ? 'Published a review to the homepage' : 'Removed a review',
+  })
 
   if (approve) {
     const { error } = await admin.from('feedback').update({ is_approved: true }).eq('id', id)
@@ -38,4 +44,4 @@ export async function PATCH(request: Request) {
 
   revalidateTag(FEEDBACK_TAG, { expire: 0 })
   return NextResponse.json({ ok: true })
-}
+})

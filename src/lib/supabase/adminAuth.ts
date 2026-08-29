@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { hasAdminElevation } from '@/lib/adminSession'
+import { setAuditActor } from '@/lib/audit'
 import type { User } from '@supabase/supabase-js'
 
 /**
@@ -24,7 +25,7 @@ export async function requireAdmin(): Promise<
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, name')
     .eq('id', user.id)
     .single()
 
@@ -35,6 +36,9 @@ export async function requireAdmin(): Promise<
   if (!(await hasAdminElevation(user.id))) {
     return { error: 'Admin session expired. Sign in again at /admin-login.', status: 403 }
   }
+
+  // Attributes the audit entry for this request, when it is an audited route.
+  setAuditActor({ id: user.id, name: profile.name, email: user.email })
 
   return { user }
 }

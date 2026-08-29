@@ -5,8 +5,11 @@ import { ADMIN_STATUS_FLOW } from '@/lib/constants'
 import { sendEmail } from '@/lib/email'
 import { outForDeliveryHtml, outForDeliveryText } from '@/lib/emailTemplates'
 import { orderRecipient } from '@/lib/notify'
+import { withAudit, setAuditTarget } from '@/lib/audit'
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withAudit(
+  'order.status_change',
+  async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -16,6 +19,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const admin = createAdminClient()
   const { data: order } = await admin.from('orders').select('*').eq('id', id).single()
   if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+
+  setAuditTarget({
+    entityType: 'order',
+    entityId: order.order_number,
+    summary: `Order #${order.order_number}: ${order.order_status} → ${status}`,
+    metadata: { from: order.order_status, to: status, ...(note ? { note } : {}) },
+  })
 
   const currentIndex = ADMIN_STATUS_FLOW.indexOf(order.order_status)
   const nextIndex = ADMIN_STATUS_FLOW.indexOf(status)
@@ -60,4 +70,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   return NextResponse.json({ ok: true })
-}
+  }
+)

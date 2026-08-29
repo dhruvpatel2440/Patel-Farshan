@@ -4,8 +4,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
 import { orderCancelledHtml, orderCancelledText } from '@/lib/emailTemplates'
 import { orderRecipient } from '@/lib/notify'
+import { withAudit, setAuditTarget } from '@/lib/audit'
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const PATCH = withAudit(
+  'order.cancel',
+  async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -20,19 +23,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'A delivered order cannot be cancelled.' }, { status: 400 })
   }
 
+  setAuditTarget({
+    entityType: 'order',
+    entityId: order.order_number,
+    summary: `Cancelled order #${order.order_number} (₹${order.total})`,
+    metadata: { reason, refundDue: order.payment_status === 'paid' },
+  })
+
   const { data: items } = await admin.from('order_items').select('*').eq('order_id', id)
 
+  // Restock the specific weight tier that was bought. products.stock_qty is a
+  // derived aggregate maintained by a trigger, so writing to it directly here
+  // would be silently overwritten and the tier would never get its units back.
   for (const item of items ?? []) {
-    const { data: product } = await admin
-      .from('products')
+    if (!item.tier_id) continue
+    const { data: tier } = await admin
+      .from('product_price_tiers')
       .select('stock_qty')
-      .eq('id', item.product_id)
+      .eq('id', item.tier_id)
       .single()
-    if (product) {
+    if (tier) {
       await admin
-        .from('products')
-        .update({ stock_qty: product.stock_qty + item.quantity })
-        .eq('id', item.product_id)
+        .from('product_price_tiers')
+        .update({ stock_qty: tier.stock_qty + item.quantity })
+        .eq('id', item.tier_id)
     }
   }
 
@@ -74,4 +88,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   return NextResponse.json({ ok: true })
-}
+  }
+)

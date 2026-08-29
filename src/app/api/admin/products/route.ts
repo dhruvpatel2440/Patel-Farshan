@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CATALOG_TAG } from '@/lib/data'
 import { parseWeightGrams } from '@/lib/weight'
+import { withAudit, setAuditTarget } from '@/lib/audit'
 
 type AdminClient = ReturnType<typeof createAdminClient>
 
@@ -54,7 +55,7 @@ async function fetchWithTiers(admin: AdminClient, id: string) {
   return { data, error }
 }
 
-export async function POST(request: Request) {
+export const POST = withAudit('product.create', async (request: Request) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -79,11 +80,17 @@ export async function POST(request: Request) {
   const { data: full, error: fetchError } = await fetchWithTiers(admin, product.id)
   if (fetchError || !full) return NextResponse.json({ error: fetchError?.message }, { status: 400 })
 
+  setAuditTarget({
+    entityType: 'product',
+    entityId: product.id,
+    summary: `Created product "${product.name}"`,
+    metadata: { tiers: tiers.length },
+  })
   revalidateTag(CATALOG_TAG, { expire: 0 })
   return NextResponse.json({ product: full })
-}
+})
 
-export async function PUT(request: Request) {
+export const PUT = withAudit('product.update', async (request: Request) => {
   const auth = await requireAdmin()
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
@@ -104,6 +111,15 @@ export async function PUT(request: Request) {
   const { data: full, error: fetchError } = await fetchWithTiers(admin, id)
   if (fetchError || !full) return NextResponse.json({ error: fetchError?.message }, { status: 400 })
 
+  setAuditTarget({
+    entityType: 'product',
+    entityId: id,
+    summary: `Updated product "${full.name}"`,
+    metadata: {
+      fields: Object.keys(body),
+      ...(Array.isArray(tiers) && tiers.length > 0 ? { tiers: tiers.length } : {}),
+    },
+  })
   revalidateTag(CATALOG_TAG, { expire: 0 })
   return NextResponse.json({ product: full })
-}
+})

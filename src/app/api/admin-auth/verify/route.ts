@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { otpMatches, OTP_MAX_ATTEMPTS } from '@/lib/otp'
+import { recordAudit } from '@/lib/audit'
 import {
   ADMIN_COOKIE,
   OTP_TRUST_COOKIE,
@@ -71,6 +72,15 @@ export async function POST(request: Request) {
   if (row.attempts >= OTP_MAX_ATTEMPTS) {
     await clear()
     await supabase.auth.signOut()
+    await recordAudit({
+      action: 'admin.login_failed',
+      actorId: user.id,
+      actorEmail: user.email,
+      status: 'failure',
+      statusCode: 429,
+      summary: 'Admin login blocked — too many incorrect codes',
+      request,
+    })
     return NextResponse.json(
       { error: 'Too many incorrect attempts. Sign in again.' },
       { status: 429 }
@@ -85,6 +95,16 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .eq('purpose', 'admin_login')
 
+    await recordAudit({
+      action: 'admin.login_failed',
+      actorId: user.id,
+      actorEmail: user.email,
+      status: 'failure',
+      statusCode: 400,
+      summary: `Incorrect admin login code (attempt ${attempts} of ${OTP_MAX_ATTEMPTS})`,
+      request,
+    })
+
     const left = OTP_MAX_ATTEMPTS - attempts
     return NextResponse.json(
       {
@@ -98,6 +118,16 @@ export async function POST(request: Request) {
   }
 
   await clear()
+
+  await recordAudit({
+    action: 'admin.login',
+    actorId: user.id,
+    actorEmail: user.email,
+    status: 'success',
+    statusCode: 200,
+    summary: 'Signed in to the admin panel',
+    request,
+  })
 
   const token = createAdminToken(user.id)
   const trust = createOtpTrustToken(user.id)
