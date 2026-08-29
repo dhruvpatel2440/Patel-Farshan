@@ -7,7 +7,6 @@ import {
   Mail,
   Phone,
   ShieldCheck,
-  ShieldOff,
   Trash2,
   Users as UsersIcon,
   IndianRupee,
@@ -41,9 +40,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [roleTab, setRoleTab] = useState<(typeof ROLE_TABS)[number]['key']>('all')
   const [search, setSearch] = useState('')
-  const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
-  const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   async function loadUsers() {
@@ -76,34 +73,6 @@ export default function AdminUsersPage() {
       return true
     })
   }, [users, roleTab, search])
-
-  async function handleRoleChange() {
-    if (!roleTarget) return
-    const nextRole = roleTarget.role === 'admin' ? 'user' : 'admin'
-    setSaving(true)
-    const res = await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: roleTarget.id, role: nextRole }),
-    })
-    const data = await res.json()
-    setSaving(false)
-
-    if (!res.ok) {
-      toast.error(data.error || 'Could not update role.')
-      return
-    }
-
-    setUsers((prev) =>
-      prev.map((u) => (u.id === roleTarget.id ? { ...u, role: nextRole } : u))
-    )
-    toast.success(
-      nextRole === 'admin'
-        ? `${roleTarget.name} is now an admin.`
-        : `${roleTarget.name} is now a customer.`
-    )
-    setRoleTarget(null)
-  }
 
   async function handleDelete() {
     if (!deleteTarget) return
@@ -256,25 +225,6 @@ export default function AdminUsersPage() {
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setRoleTarget(user)}
-                        className={cn(
-                          'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors',
-                          user.role === 'admin'
-                            ? 'border-red-400 text-red-600 hover:bg-red-50'
-                            : 'border-maroon text-maroon hover:bg-maroon/5'
-                        )}
-                      >
-                        {user.role === 'admin' ? (
-                          <>
-                            <ShieldOff className="h-3.5 w-3.5" /> Remove Admin
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck className="h-3.5 w-3.5" /> Make Admin
-                          </>
-                        )}
-                      </button>
-                      <button
                         onClick={() => setDeleteTarget(user)}
                         title={
                           user.orderCount > 0
@@ -294,38 +244,6 @@ export default function AdminUsersPage() {
         </table>
       </div>
 
-      <Dialog open={!!roleTarget} onOpenChange={(open) => !open && setRoleTarget(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-maroon">
-              {roleTarget?.role === 'admin'
-                ? `Remove admin access from ${roleTarget?.name}?`
-                : `Make ${roleTarget?.name} an admin?`}
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-stone-600">
-            {roleTarget?.role === 'admin'
-              ? 'They will lose access to this admin panel and become a regular customer.'
-              : 'They will be able to manage products, orders, cities and other users.'}
-          </p>
-          <DialogFooter className="mt-4">
-            <DialogClose nativeButton={false} render={<button className="btn-outline">Cancel</button>} />
-            <button
-              onClick={handleRoleChange}
-              disabled={saving}
-              className={cn(
-                'rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60',
-                roleTarget?.role === 'admin'
-                  ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-maroon hover:bg-maroon-light'
-              )}
-            >
-              {saving ? 'Saving…' : 'Confirm'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -334,8 +252,7 @@ export default function AdminUsersPage() {
           {deleteTarget && deleteTarget.orderCount > 0 ? (
             <p className="text-sm text-stone-600">
               {deleteTarget.name} has {deleteTarget.orderCount} order(s) on record, so the account
-              cannot be deleted — that history is part of the shop&apos;s revenue record. Remove
-              their admin access instead if you need to lock them out.
+              cannot be deleted — that history is part of the shop&apos;s revenue record.
             </p>
           ) : (
             <p className="text-sm text-stone-600">

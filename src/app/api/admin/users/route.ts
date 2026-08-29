@@ -51,54 +51,6 @@ export async function GET() {
   return NextResponse.json({ users })
 }
 
-/** Promote a customer to admin, or demote an admin back to customer. */
-export async function PATCH(request: Request) {
-  const auth = await requireAdmin()
-  if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
-
-  const { id, role } = await request.json()
-
-  if (!id) return NextResponse.json({ error: 'User id is required.' }, { status: 400 })
-  if (role !== 'user' && role !== 'admin') {
-    return NextResponse.json({ error: 'Role must be "user" or "admin".' }, { status: 400 })
-  }
-
-  // Guard against locking yourself out of the admin panel.
-  if (id === auth.user.id && role !== 'admin') {
-    return NextResponse.json(
-      { error: 'You cannot remove your own admin access. Ask another admin to do it.' },
-      { status: 400 }
-    )
-  }
-
-  const admin = createAdminClient()
-
-  // Never allow removing the last admin — that would leave the panel unreachable.
-  if (role !== 'admin') {
-    const { count } = await admin
-      .from('profiles')
-      .select('id', { count: 'exact', head: true })
-      .eq('role', 'admin')
-
-    if ((count ?? 0) <= 1) {
-      return NextResponse.json(
-        { error: 'This is the only admin left. Promote someone else first.' },
-        { status: 400 }
-      )
-    }
-  }
-
-  const { data, error } = await admin
-    .from('profiles')
-    .update({ role })
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-  return NextResponse.json({ user: data })
-}
-
 /**
  * Permanently delete a user account.
  *
@@ -154,7 +106,7 @@ export async function DELETE(request: Request) {
   if ((orderCount ?? 0) > 0) {
     return NextResponse.json(
       {
-        error: `${profile.name} has ${orderCount} order(s) on record and cannot be deleted. Remove their admin access instead.`,
+        error: `${profile.name} has ${orderCount} order(s) on record and cannot be deleted — that history is part of the shop's revenue record.`,
       },
       { status: 400 }
     )
