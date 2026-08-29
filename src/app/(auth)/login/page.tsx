@@ -55,18 +55,11 @@ function LoginForm() {
         return
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single()
-
+      // Customer sign-in only. Staff use /admin-login, which additionally
+      // requires an emailed code — so this page never routes into /admin, and
+      // an admin signing in here simply gets their own customer view.
       const next = searchParams.get('next')
-      if (profile?.role === 'admin') {
-        router.push(next || '/admin')
-      } else {
-        router.push(next || '/dashboard')
-      }
+      router.push(next && !next.startsWith('/admin') ? next : '/dashboard')
       router.refresh()
     } catch {
       setServerError('Unable to reach the server. Please try again in a moment.')

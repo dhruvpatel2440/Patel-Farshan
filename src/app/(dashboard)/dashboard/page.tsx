@@ -7,6 +7,7 @@ import { ArrowRight } from 'lucide-react'
 import { OrnamentalDivider } from '@/components/shared/OrnamentalDivider'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { OrderCard } from '@/components/order/OrderCard'
+import { FeedbackForm } from '@/components/dashboard/FeedbackForm'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import type { Order } from '@/types'
@@ -86,6 +87,10 @@ export default function DashboardPage() {
             ))}
           </div>
         )}
+
+        <div className="mt-8">
+          <FeedbackForm />
+        </div>
       </div>
     </div>
   )

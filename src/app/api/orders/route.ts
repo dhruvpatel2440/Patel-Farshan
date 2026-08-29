@@ -2,7 +2,13 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
-import { orderConfirmationHtml, orderConfirmationText } from '@/lib/emailTemplates'
+import {
+  newOrderAdminHtml,
+  newOrderAdminText,
+  orderConfirmationHtml,
+  orderConfirmationText,
+} from '@/lib/emailTemplates'
+import { adminInbox } from '@/lib/notify'
 import type { Address, PaymentMode } from '@/types'
 
 interface CreateOrderBody {
@@ -212,6 +218,33 @@ export async function POST(request: Request) {
           orderId: order.id,
         }),
         context: 'order-confirmation',
+      }).catch(() => {})
+    }
+
+    // Alert the shop. Without this, new orders are only discovered by
+    // opening the admin dashboard.
+    const shopInbox = adminInbox()
+    if (shopInbox) {
+      const adminPayload = {
+        orderNumber: order.order_number,
+        customerName: address.full_name,
+        customerPhone: address.phone,
+        items: orderItems.map((i) => ({
+          name: i.product_name,
+          quantity: i.quantity,
+          lineTotal: i.line_total,
+        })),
+        total: order.total,
+        paymentMode: order.payment_mode,
+        address: `${address.address_line}, ${address.area}, ${city.name} — ${address.pincode}`,
+        orderId: order.id,
+      }
+      sendEmail({
+        to: { email: shopInbox },
+        subject: `New order #${order.order_number} — ₹${order.total}`,
+        html: newOrderAdminHtml(adminPayload),
+        text: newOrderAdminText(adminPayload),
+        context: 'new-order-admin',
       }).catch(() => {})
     }
 

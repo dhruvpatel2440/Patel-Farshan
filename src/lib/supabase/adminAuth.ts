@@ -1,10 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { hasAdminElevation } from '@/lib/adminSession'
 import type { User } from '@supabase/supabase-js'
 
 /**
- * Verifies the requesting user is signed in and has role='admin'.
- * Returns the user on success, or a ready-to-return NextResponse-shaped
- * error object on failure.
+ * Verifies the requesting user is signed in, has role='admin', AND holds a
+ * current admin elevation from /admin-login.
+ *
+ * The elevation check matters here as much as in the layout: without it, the
+ * admin write endpoints would still be reachable with nothing but a normal
+ * customer session belonging to an admin account.
  */
 export async function requireAdmin(): Promise<
   { user: User } | { error: string; status: number }
@@ -26,6 +30,10 @@ export async function requireAdmin(): Promise<
 
   if (profile?.role !== 'admin') {
     return { error: 'Forbidden', status: 403 }
+  }
+
+  if (!(await hasAdminElevation(user.id))) {
+    return { error: 'Admin session expired. Sign in again at /admin-login.', status: 403 }
   }
 
   return { user }

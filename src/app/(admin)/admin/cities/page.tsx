@@ -11,8 +11,8 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
 import type { City } from '@/types'
+import { Toggle } from '@/components/admin/Toggle'
 
 const EMPTY_FORM = { name: '', delivery_charge: '', min_order_value: '', is_active: true }
 
@@ -147,20 +147,11 @@ export default function AdminCitiesPage() {
                   <td className="p-3">₹{city.delivery_charge}</td>
                   <td className="p-3">₹{city.min_order_value}</td>
                   <td className="p-3">
-                    <button
-                      onClick={() => toggleActive(city)}
-                      className={cn(
-                        'relative h-5 w-9 rounded-full transition-colors',
-                        city.is_active ? 'bg-green-500' : 'bg-stone-300'
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
-                          city.is_active ? 'translate-x-4' : 'translate-x-0.5'
-                        )}
-                      />
-                    </button>
+                    <Toggle
+                      checked={city.is_active}
+                      onChange={() => toggleActive(city)}
+                      label={`${city.is_active ? 'Deactivate' : 'Activate'} delivery to ${city.name}`}
+                    />
                   </td>
                   <td className="p-3">
                     <div className="flex gap-2">

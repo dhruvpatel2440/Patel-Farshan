@@ -184,7 +184,7 @@ export function DashboardNavbar() {
 
           {user && (
             <DropdownMenu>
-              <DropdownMenuTrigger className="hidden border-none bg-transparent p-0 md:flex">
+              <DropdownMenuTrigger className="flex border-none bg-transparent p-0">
                 <Avatar className="h-8 w-8 border-2 border-gold">
                   <AvatarFallback className="bg-gold text-xs font-bold text-maroon">
                     {initials}

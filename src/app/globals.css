@@ -275,3 +275,29 @@
 .animate-status-glow {
   animation: status-glow 1s ease-out;
 }
+
+/* Testimonial marquee: track holds the item list twice back-to-back, and
+   animates from -50% to 0% so the *content* reads as flowing left-to-right
+   (the loop point is invisible because the second copy is identical). */
+@keyframes marquee-ltr {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0%);
+  }
+}
+
+.animate-marquee-ltr {
+  animation: marquee-ltr 40s linear infinite;
+}
+
+.pause-on-hover:hover .animate-marquee-ltr {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee-ltr {
+    animation: none;
+  }
+}

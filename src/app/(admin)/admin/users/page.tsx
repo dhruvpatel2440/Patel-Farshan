@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { format } from 'date-fns'
-import { Mail, Phone, ShieldCheck, ShieldOff, Users as UsersIcon, IndianRupee } from 'lucide-react'
+import {
+  Mail,
+  Phone,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+  Users as UsersIcon,
+  IndianRupee,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -34,7 +42,9 @@ export default function AdminUsersPage() {
   const [roleTab, setRoleTab] = useState<(typeof ROLE_TABS)[number]['key']>('all')
   const [search, setSearch] = useState('')
   const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function loadUsers() {
     const res = await fetch('/api/admin/users')
@@ -93,6 +103,23 @@ export default function AdminUsersPage() {
         : `${roleTarget.name} is now a customer.`
     )
     setRoleTarget(null)
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    const res = await fetch(`/api/admin/users?id=${deleteTarget.id}`, { method: 'DELETE' })
+    const data = await res.json()
+    setDeleting(false)
+
+    if (!res.ok) {
+      toast.error(data.error || 'Could not delete user.')
+      return
+    }
+
+    setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id))
+    toast.success(`${deleteTarget.name} has been deleted.`)
+    setDeleteTarget(null)
   }
 
   const stats = [
@@ -227,25 +254,38 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="p-3">
-                    <button
-                      onClick={() => setRoleTarget(user)}
-                      className={cn(
-                        'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors',
-                        user.role === 'admin'
-                          ? 'border-red-400 text-red-600 hover:bg-red-50'
-                          : 'border-maroon text-maroon hover:bg-maroon/5'
-                      )}
-                    >
-                      {user.role === 'admin' ? (
-                        <>
-                          <ShieldOff className="h-3.5 w-3.5" /> Remove Admin
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="h-3.5 w-3.5" /> Make Admin
-                        </>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setRoleTarget(user)}
+                        className={cn(
+                          'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors',
+                          user.role === 'admin'
+                            ? 'border-red-400 text-red-600 hover:bg-red-50'
+                            : 'border-maroon text-maroon hover:bg-maroon/5'
+                        )}
+                      >
+                        {user.role === 'admin' ? (
+                          <>
+                            <ShieldOff className="h-3.5 w-3.5" /> Remove Admin
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck className="h-3.5 w-3.5" /> Make Admin
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(user)}
+                        title={
+                          user.orderCount > 0
+                            ? 'Users with orders cannot be deleted'
+                            : `Delete ${user.name}`
+                        }
+                        className="flex items-center gap-1.5 rounded-lg border border-red-400 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -281,6 +321,36 @@ export default function AdminUsersPage() {
               )}
             >
               {saving ? 'Saving…' : 'Confirm'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-maroon">Delete {deleteTarget?.name}?</DialogTitle>
+          </DialogHeader>
+          {deleteTarget && deleteTarget.orderCount > 0 ? (
+            <p className="text-sm text-stone-600">
+              {deleteTarget.name} has {deleteTarget.orderCount} order(s) on record, so the account
+              cannot be deleted — that history is part of the shop&apos;s revenue record. Remove
+              their admin access instead if you need to lock them out.
+            </p>
+          ) : (
+            <p className="text-sm text-stone-600">
+              This permanently removes their account, saved addresses and cart. This cannot be
+              undone.
+            </p>
+          )}
+          <DialogFooter className="mt-4">
+            <DialogClose nativeButton={false} render={<button className="btn-outline">Cancel</button>} />
+            <button
+              onClick={handleDelete}
+              disabled={deleting || (deleteTarget?.orderCount ?? 0) > 0}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+            >
+              {deleting ? 'Deleting…' : 'Delete User'}
             </button>
           </DialogFooter>
         </DialogContent>

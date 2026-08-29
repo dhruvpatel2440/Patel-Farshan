@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Package, FolderTree, ClipboardList, Building2, Users, Store, LogOut, Menu } from 'lucide-react'
+import { LayoutDashboard, Package, FolderTree, ClipboardList, Building2, Users, MessageSquareHeart, Store, LogOut, Menu } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { OrnamentalDivider } from '@/components/shared/OrnamentalDivider'
 import { createClient } from '@/lib/supabase/client'
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/admin/categories', label: 'Categories', icon: FolderTree },
   { href: '/admin/orders', label: 'Orders', icon: ClipboardList },
   { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/feedback', label: 'Feedback', icon: MessageSquareHeart },
   { href: '/admin/cities', label: 'Cities', icon: Building2 },
 ]
 
@@ -22,16 +23,20 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter()
 
   async function handleLogout() {
+    // Server-side so the httpOnly admin elevation cookie is cleared too —
+    // signing out client-side alone would leave it valid for 8 hours.
+    await fetch('/api/admin-auth/logout', { method: 'POST' })
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/')
+    router.push('/admin-login')
     router.refresh()
   }
 
   return (
     <div className="flex h-full flex-col bg-maroon-dark px-3 py-5 text-cream">
       <div className="px-2">
-        <p className="font-serif text-lg font-bold text-gold">પ.ફ. Admin</p>
+        <p className="font-serif text-lg font-bold leading-tight text-gold">Patel Farsan</p>
+        <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-cream/50">Admin</p>
         <OrnamentalDivider size="sm" className="!my-2" />
       </div>
 
@@ -95,7 +100,7 @@ export function AdminSidebar() {
             <SidebarContent />
           </SheetContent>
         </Sheet>
-        <p className="font-serif text-sm font-bold text-gold">પ.ફ. Admin</p>
+        <p className="font-serif text-sm font-bold text-gold">Patel Farsan Admin</p>
       </div>
     </>
   )

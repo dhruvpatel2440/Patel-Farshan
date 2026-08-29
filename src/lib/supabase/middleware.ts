@@ -36,9 +36,14 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims()
   const userId = data?.claims?.sub ?? null
 
-  // Protect admin routes
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (!userId) return NextResponse.redirect(new URL('/login', request.url))
+  // Protect admin routes. The elevation cookie is checked in the admin layout
+  // and requireAdmin() — this only keeps signed-out visitors off the panel and
+  // sends them to the staff login rather than the customer one.
+  if (
+    request.nextUrl.pathname.startsWith('/admin') &&
+    request.nextUrl.pathname !== '/admin-login'
+  ) {
+    if (!userId) return NextResponse.redirect(new URL('/admin-login', request.url))
   }
 
   // Protect user account routes

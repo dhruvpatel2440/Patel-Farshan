@@ -7,7 +7,8 @@ export const registerSchema = z
   .object({
     name: z.string().trim().min(2, 'Enter your full name'),
     phone: z.string().regex(phoneRegex, 'Enter a valid 10-digit mobile number'),
-    email: z.string().trim().email('Enter a valid email').optional().or(z.literal('')),
+    // Required since signup now sends a verification code to this address.
+    email: z.string().trim().min(1, 'Enter your email').email('Enter a valid email'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string(),
     terms: z.boolean().refine((v) => v === true, {

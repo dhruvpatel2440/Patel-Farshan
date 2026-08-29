@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ADMIN_STATUS_FLOW } from '@/lib/constants'
+import { sendEmail } from '@/lib/email'
+import { outForDeliveryHtml, outForDeliveryText } from '@/lib/emailTemplates'
+import { orderRecipient } from '@/lib/notify'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin()
@@ -35,6 +38,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     changed_by: auth.user.id,
     note: note || null,
   })
+
+  // Only 'out_for_delivery' is worth an email. Notifying on every step would
+  // spend ~3 sends per order against a 300/day cap for little customer value.
+  if (status === 'out_for_delivery') {
+    const recipient = await orderRecipient(order.user_id)
+    if (recipient) {
+      const payload = {
+        orderNumber: order.order_number,
+        customerName: recipient.name,
+        orderId: order.id,
+      }
+      await sendEmail({
+        to: { email: recipient.email, name: recipient.name },
+        subject: `Your order #${order.order_number} is out for delivery`,
+        html: outForDeliveryHtml(payload),
+        text: outForDeliveryText(payload),
+        context: 'out-for-delivery',
+      })
+    }
+  }
 
   return NextResponse.json({ ok: true })
 }

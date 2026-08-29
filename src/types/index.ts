@@ -110,3 +110,14 @@ export interface CartItem {
   product: Product
   quantity: number
 }
+
+export interface Feedback {
+  id: string
+  user_id: string
+  user_name: string
+  rating: number
+  message: string | null
+  is_approved: boolean
+  created_at: string
+  updated_at: string
+}

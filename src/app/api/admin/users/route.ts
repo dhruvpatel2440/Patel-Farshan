@@ -98,3 +98,74 @@ export async function PATCH(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ user: data })
 }
+
+/**
+ * Permanently delete a user account.
+ *
+ * Deleting the auth user cascades to their profile, addresses and cart items.
+ * Orders deliberately do NOT cascade, so a customer with order history cannot
+ * be removed — that history is the shop's revenue record.
+ */
+export async function DELETE(request: Request) {
+  const auth = await requireAdmin()
+  if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+
+  if (!id) return NextResponse.json({ error: 'User id is required.' }, { status: 400 })
+
+  if (id === auth.user.id) {
+    return NextResponse.json({ error: 'You cannot delete your own account.' }, { status: 400 })
+  }
+
+  const admin = createAdminClient()
+
+  const { data: profile, error: profileError } = await admin
+    .from('profiles')
+    .select('id, name, role')
+    .eq('id', id)
+    .single()
+
+  if (profileError || !profile) {
+    return NextResponse.json({ error: 'User not found.' }, { status: 404 })
+  }
+
+  // Never allow deleting the last admin — that would leave the panel unreachable.
+  if (profile.role === 'admin') {
+    const { count } = await admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'admin')
+
+    if ((count ?? 0) <= 1) {
+      return NextResponse.json(
+        { error: 'This is the only admin left. Promote someone else first.' },
+        { status: 400 }
+      )
+    }
+  }
+
+  const { count: orderCount } = await admin
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', id)
+
+  if ((orderCount ?? 0) > 0) {
+    return NextResponse.json(
+      {
+        error: `${profile.name} has ${orderCount} order(s) on record and cannot be deleted. Remove their admin access instead.`,
+      },
+      { status: 400 }
+    )
+  }
+
+  // order_status_history.changed_by has no cascade — detach it so the audit
+  // trail survives the account being removed.
+  await admin.from('order_status_history').update({ changed_by: null }).eq('changed_by', id)
+
+  const { error } = await admin.auth.admin.deleteUser(id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  return NextResponse.json({ success: true })
+}

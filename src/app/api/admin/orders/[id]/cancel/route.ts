@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendEmail } from '@/lib/email'
+import { orderCancelledHtml, orderCancelledText } from '@/lib/emailTemplates'
+import { orderRecipient } from '@/lib/notify'
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdmin()
@@ -49,6 +52,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     changed_by: auth.user.id,
     note,
   })
+
+  // Tell the customer why — the reason is captured here but was never
+  // surfaced to them anywhere. Best-effort: never fail the cancellation.
+  const recipient = await orderRecipient(order.user_id)
+  if (recipient) {
+    const payload = {
+      orderNumber: order.order_number,
+      customerName: recipient.name,
+      orderId: order.id,
+      reason,
+      refundDue: order.payment_status === 'paid',
+    }
+    await sendEmail({
+      to: { email: recipient.email, name: recipient.name },
+      subject: `Order #${order.order_number} cancelled`,
+      html: orderCancelledHtml(payload),
+      text: orderCancelledText(payload),
+      context: 'order-cancelled',
+    })
+  }
 
   return NextResponse.json({ ok: true })
 }

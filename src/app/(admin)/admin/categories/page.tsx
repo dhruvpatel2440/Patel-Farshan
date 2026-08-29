@@ -12,8 +12,8 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
 import type { Category } from '@/types'
+import { Toggle } from '@/components/admin/Toggle'
 
 const EMPTY_FORM = { name: '', name_gujarati: '', display_order: '0', is_active: true }
 
@@ -242,20 +242,11 @@ export default function AdminCategoriesPage() {
                   <td className="p-3 font-gujarati font-bold text-gold">{cat.name_gujarati}</td>
                   <td className="p-3 text-stone-600">{cat.name}</td>
                   <td className="p-3">
-                    <button
-                      onClick={() => toggleActive(cat)}
-                      className={cn(
-                        'relative h-5 w-9 rounded-full transition-colors',
-                        cat.is_active ? 'bg-green-500' : 'bg-stone-300'
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
-                          cat.is_active ? 'translate-x-4' : 'translate-x-0.5'
-                        )}
-                      />
-                    </button>
+                    <Toggle
+                      checked={cat.is_active}
+                      onChange={() => toggleActive(cat)}
+                      label={`${cat.is_active ? 'Deactivate' : 'Activate'} ${cat.name} category`}
+                    />
                   </td>
                   <td className="p-3">
                     <div className="flex gap-2">

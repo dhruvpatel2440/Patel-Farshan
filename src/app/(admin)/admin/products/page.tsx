@@ -16,6 +16,7 @@ import { ProductFormDialog } from '@/components/admin/ProductFormDialog'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import type { Category, Product } from '@/types'
+import { Toggle } from '@/components/admin/Toggle'
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -189,20 +190,11 @@ export default function AdminProductsPage() {
                       {product.stock_qty}
                     </td>
                     <td className="p-3">
-                      <button
-                        onClick={() => toggleAvailable(product)}
-                        className={cn(
-                          'relative h-5 w-9 rounded-full transition-colors',
-                          product.is_available ? 'bg-green-500' : 'bg-stone-300'
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            'absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform',
-                            product.is_available ? 'translate-x-4' : 'translate-x-0.5'
-                          )}
-                        />
-                      </button>
+                      <Toggle
+                        checked={product.is_available}
+                        onChange={() => toggleAvailable(product)}
+                        label={`${product.is_available ? 'Hide' : 'Show'} ${product.name} in the shop`}
+                      />
                     </td>
                     <td className="p-3">
                       <div className="flex gap-2">
