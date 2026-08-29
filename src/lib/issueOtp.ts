@@ -48,21 +48,25 @@ export async function issueOtp(args: {
 
   const minutes = Math.round(OTP_TTL_MS / 60000)
 
+  // The code deliberately stays out of the subject line. Subjects are
+  // retained by the mail provider, surface in our own email audit log, and
+  // show up in lock-screen notification previews — putting a live credential
+  // there leaks it to anyone who can see any of those.
   const variants = {
     signup: {
-      subject: `${code} is your Patel Farsan verification code`,
+      subject: 'Your Patel Farsan verification code',
       html: verificationCodeHtml(args.name, code, minutes),
       text: verificationCodeText(args.name, code, minutes),
       context: 'signup-otp',
     },
     password_reset: {
-      subject: `${code} is your Patel Farsan password reset code`,
+      subject: 'Your Patel Farsan password reset code',
       html: passwordResetCodeHtml(args.name, code, minutes),
       text: passwordResetCodeText(args.name, code, minutes),
       context: 'password-reset-otp',
     },
     admin_login: {
-      subject: `${code} is your Patel Farsan admin security code`,
+      subject: 'Your Patel Farsan admin security code',
       html: adminLoginCodeHtml(args.name, code, minutes),
       text: adminLoginCodeText(args.name, code, minutes),
       context: 'admin-login-otp',

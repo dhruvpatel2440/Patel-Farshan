@@ -19,6 +19,22 @@ export const DAILY_EMAIL_LIMIT = 300
 
 type EmailStatus = 'sent' | 'failed' | 'skipped'
 
+/**
+ * Strips one-time codes out of a subject before it is stored.
+ *
+ * Subjects are long-lived — they sit in the audit log and in the mail
+ * provider's dashboard — so a live credential must never be written into
+ * one. The subjects themselves no longer carry codes, but this is the
+ * backstop: if one is ever reintroduced, it still can't reach the log.
+ *
+ * Scoped to OTP emails so real digits elsewhere (order numbers, totals)
+ * are left intact.
+ */
+export function redactSubject(context: string, subject: string): string {
+  if (!context.endsWith('-otp')) return subject
+  return subject.replace(/\b\d{4,8}\b/g, '••••••')
+}
+
 interface SendEmailArgs {
   to: { email: string; name?: string }
   subject: string
@@ -46,7 +62,7 @@ async function logAttempt(args: {
       context: args.context,
       recipient_email: args.to.email || '(none)',
       recipient_name: args.to.name ?? null,
-      subject: args.subject,
+      subject: redactSubject(args.context, args.subject),
       status: args.status,
       error: args.error ?? null,
       provider_message_id: args.providerMessageId ?? null,

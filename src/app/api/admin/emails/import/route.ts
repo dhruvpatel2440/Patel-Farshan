@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { redactSubject } from '@/lib/email'
 
 const BREVO_PAGE_SIZE = 100
 const MAX_PAGES = 100
@@ -132,16 +133,21 @@ export async function POST() {
     return NextResponse.json({ imported: 0, found: 0 })
   }
 
-  const rows = [...byMessageId.entries()].map(([messageId, e]) => ({
-    context: inferContext(e.subject),
-    recipient_email: e.email,
-    recipient_name: null,
-    subject: e.subject,
-    status: e.status,
-    error: e.error,
-    created_at: new Date(e.date).toISOString(),
-    provider_message_id: messageId,
-  }))
+  // Historical OTP emails carried the code in the subject. Redact before it
+  // is written, so importing history can't reintroduce the leak.
+  const rows = [...byMessageId.entries()].map(([messageId, e]) => {
+    const context = inferContext(e.subject)
+    return {
+      context,
+      recipient_email: e.email,
+      recipient_name: null,
+      subject: redactSubject(context, e.subject),
+      status: e.status,
+      error: e.error,
+      created_at: new Date(e.date).toISOString(),
+      provider_message_id: messageId,
+    }
+  })
 
   const admin = createAdminClient()
 
