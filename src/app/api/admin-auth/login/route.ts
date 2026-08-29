@@ -2,12 +2,19 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { issueOtp } from '@/lib/issueOtp'
+import { ADMIN_COOKIE, adminCookieOptions, createAdminToken, hasRecentOtpVerification } from '@/lib/adminSession'
 
 /**
- * Admin login, step 1: verify the password, confirm the account is actually an
- * admin, then email a 6-digit code. A session is established here, but it
- * grants nothing extra — /admin additionally requires the elevation cookie
- * that only step 2 can mint.
+ * Admin login, step 1: verify the password and confirm the account is
+ * actually an admin.
+ *
+ * If this device passed the emailed code within the last 5 hours
+ * (hasRecentOtpVerification), the code step is skipped entirely — password
+ * alone re-opens the panel, and this response mints the elevation cookie
+ * directly. Otherwise a fresh code is emailed and the client proceeds to
+ * step 2 as before. Either way, a session is established here, but it grants
+ * nothing extra on its own — /admin requires the elevation cookie, which
+ * only this "trusted device" path or a completed code step can mint.
  */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)
@@ -39,6 +46,13 @@ export async function POST(request: Request) {
     return denied
   }
 
+  if (await hasRecentOtpVerification(data.user.id)) {
+    const token = createAdminToken(data.user.id)
+    const res = NextResponse.json({ ok: true, otpRequired: false })
+    res.cookies.set(ADMIN_COOKIE, token.value, { ...adminCookieOptions, maxAge: token.maxAge })
+    return res
+  }
+
   const sent = await issueOtp({
     userId: data.user.id,
     email,
@@ -54,5 +68,5 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, otpRequired: true })
 }

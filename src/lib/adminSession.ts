@@ -9,10 +9,14 @@ import { cookies } from 'next/headers'
  * admin login flow (password + emailed 6-digit code), so a stolen or
  * long-lived customer session can never be walked into the admin area — and
  * admin access re-expires every 8 hours regardless of the auth session.
+ *
+ * Separately, a "this device recently passed the code" cookie lets a login
+ * within 5 hours of the last successful OTP skip straight past the code step
+ * (password only) — see OTP_TRUST_COOKIE below. It is deliberately shorter
+ * than the 8-hour elevation and tracked independently: it governs whether the
+ * *login page* re-demands a code, not how long an already-open panel stays
+ * open.
  */
-
-export const ADMIN_COOKIE = 'pf_admin'
-const TTL_MS = 8 * 60 * 60 * 1000
 
 function secret(): string {
   // Reuses an existing server-only secret so deployment needs no new env var.
@@ -30,32 +34,65 @@ function safeEqual(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB)
 }
 
-export function createAdminToken(userId: string): { value: string; maxAge: number } {
-  const expiresAt = Date.now() + TTL_MS
-  const payload = `${userId}.${expiresAt}`
-  return { value: `${payload}.${sign(payload)}`, maxAge: Math.floor(TTL_MS / 1000) }
+/**
+ * The purpose tag is baked into the signed payload so a token minted for one
+ * cookie can't be replayed into the other just by copying the cookie value —
+ * `readToken` rejects it unless the tag matches what it's checking for.
+ */
+function createToken(purpose: string, userId: string, ttlMs: number): { value: string; maxAge: number } {
+  const expiresAt = Date.now() + ttlMs
+  const payload = `${purpose}.${userId}.${expiresAt}`
+  return { value: `${payload}.${sign(payload)}`, maxAge: Math.floor(ttlMs / 1000) }
 }
 
-/** Returns the user id the token was minted for, or null if it's invalid/expired. */
-export function readAdminToken(token: string | undefined): string | null {
+function readToken(purpose: string, token: string | undefined): string | null {
   if (!token) return null
 
   const parts = token.split('.')
-  if (parts.length !== 3) return null
+  if (parts.length !== 4) return null
 
-  const [userId, expiresAt, signature] = parts
-  const payload = `${userId}.${expiresAt}`
+  const [tokenPurpose, userId, expiresAt, signature] = parts
+  if (tokenPurpose !== purpose) return null
 
+  const payload = `${tokenPurpose}.${userId}.${expiresAt}`
   if (!safeEqual(signature, sign(payload))) return null
   if (!Number(expiresAt) || Number(expiresAt) < Date.now()) return null
 
   return userId
 }
 
+export const ADMIN_COOKIE = 'pf_admin'
+const ADMIN_TTL_MS = 8 * 60 * 60 * 1000
+
+export function createAdminToken(userId: string) {
+  return createToken('admin', userId, ADMIN_TTL_MS)
+}
+
+export function readAdminToken(token: string | undefined): string | null {
+  return readToken('admin', token)
+}
+
 /** True only when the caller holds a valid, unexpired elevation for this user. */
 export async function hasAdminElevation(userId: string): Promise<boolean> {
   const store = await cookies()
   return readAdminToken(store.get(ADMIN_COOKIE)?.value) === userId
+}
+
+export const OTP_TRUST_COOKIE = 'pf_admin_otp_trust'
+const OTP_TRUST_TTL_MS = 5 * 60 * 60 * 1000
+
+export function createOtpTrustToken(userId: string) {
+  return createToken('otp_trust', userId, OTP_TRUST_TTL_MS)
+}
+
+export function readOtpTrustToken(token: string | undefined): string | null {
+  return readToken('otp_trust', token)
+}
+
+/** True when this admin passed the emailed code within the last 5 hours. */
+export async function hasRecentOtpVerification(userId: string): Promise<boolean> {
+  const store = await cookies()
+  return readOtpTrustToken(store.get(OTP_TRUST_COOKIE)?.value) === userId
 }
 
 export const adminCookieOptions = {

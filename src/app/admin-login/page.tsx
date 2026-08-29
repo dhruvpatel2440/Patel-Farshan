@@ -42,6 +42,14 @@ export default function AdminLoginPage() {
         setError(data.error || 'Invalid credentials.')
         return
       }
+      // This device passed the code within the last 5 hours — the login
+      // route already minted the elevation cookie, so there's nothing left
+      // to verify here.
+      if (data.otpRequired === false) {
+        router.push('/admin')
+        router.refresh()
+        return
+      }
       setCode('')
       setStep('code')
     } catch {
