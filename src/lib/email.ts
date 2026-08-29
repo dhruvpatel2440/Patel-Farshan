@@ -38,6 +38,7 @@ async function logAttempt(args: {
   subject: string
   status: EmailStatus
   error?: string
+  providerMessageId?: string
 }): Promise<void> {
   try {
     const admin = createAdminClient()
@@ -48,6 +49,7 @@ async function logAttempt(args: {
       subject: args.subject,
       status: args.status,
       error: args.error ?? null,
+      provider_message_id: args.providerMessageId ?? null,
     })
   } catch (err) {
     console.error(`[email:${args.context}] could not write audit log:`, err)
@@ -103,7 +105,12 @@ export async function sendEmail({ to, subject, html, text, context }: SendEmailA
       return false
     }
 
-    await logAttempt({ context, to, subject, status: 'sent' })
+    // Brevo returns { messageId: "<...@domain>" }. Recording it lets the
+    // Brevo history import recognise sends we already logged.
+    const payload = await res.json().catch(() => null)
+    const messageId = typeof payload?.messageId === 'string' ? payload.messageId : undefined
+
+    await logAttempt({ context, to, subject, status: 'sent', providerMessageId: messageId })
     return true
   } catch (err) {
     console.error(`[email:${context}] request failed:`, err)

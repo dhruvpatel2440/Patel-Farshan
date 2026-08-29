@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, Download, RefreshCw, Search } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { EmailLog } from '@/types'
 
@@ -41,6 +42,7 @@ export default function AdminEmailsPage() {
   const [context, setContext] = useState('all')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -63,6 +65,29 @@ export default function AdminEmailsPage() {
     load()
   }, [load])
 
+  async function handleImport() {
+    setImporting(true)
+    try {
+      const res = await fetch('/api/admin/emails/import', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || 'Could not import from Brevo.')
+        return
+      }
+      if (data.imported > 0) {
+        toast.success(`Imported ${data.imported} older email${data.imported === 1 ? '' : 's'}.`)
+        setPage(0)
+        await load()
+      } else {
+        toast(`Nothing new — all ${data.found} emails in Brevo's history are already logged.`)
+      }
+    } catch {
+      toast.error('Network error while importing.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
   const usedPct = quota ? Math.min(100, (quota.used / quota.limit) * 100) : 0
   const nearLimit = quota ? quota.remaining <= 30 : false
@@ -76,13 +101,24 @@ export default function AdminEmailsPage() {
             Every order confirmation, status update, OTP, and contact-form email sent by the shop.
           </p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="btn-outline flex items-center gap-1.5 !py-2 text-sm disabled:opacity-50"
-        >
-          <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleImport}
+            disabled={importing}
+            className="btn-outline flex items-center gap-1.5 !py-2 text-sm disabled:opacity-50"
+            title="Pull older emails from Brevo's own history into this log"
+          >
+            <Download className={cn('h-4 w-4', importing && 'animate-pulse')} />
+            {importing ? 'Importing…' : 'Import history'}
+          </button>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="btn-outline flex items-center gap-1.5 !py-2 text-sm disabled:opacity-50"
+          >
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Daily quota */}
