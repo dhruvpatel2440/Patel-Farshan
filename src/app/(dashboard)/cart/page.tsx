@@ -21,15 +21,15 @@ export default function CartPage() {
 
   useEffect(() => setHydrated(true), [])
 
-  const subtotal = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+  const subtotal = items.reduce((sum, i) => sum + i.tier.price * i.quantity, 0)
 
   function handleRemove(item: CartItem) {
-    removeItem(item.product.id)
+    removeItem(item.product.id, item.tier.id)
     toast(`${item.product.name} removed from cart`, {
       action: {
         label: 'Undo',
         onClick: () => {
-          for (let i = 0; i < item.quantity; i++) addBack(item.product)
+          for (let i = 0; i < item.quantity; i++) addBack(item.product, item.tier)
         },
       },
       duration: 5000,
@@ -61,7 +61,7 @@ export default function CartPage() {
         {/* Items */}
         <div className="flex-1 space-y-3">
           {items.map((item) => (
-            <div key={item.product.id} className="card-base flex gap-3 p-3">
+            <div key={`${item.product.id}-${item.tier.id}`} className="card-base flex gap-3 p-3">
               <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-cream">
                 {item.product.image_url ? (
                   <Image src={item.product.image_url} alt={item.product.name} fill className="object-cover" />
@@ -77,7 +77,7 @@ export default function CartPage() {
                   </p>
                   <p className="text-xs text-stone-400">{item.product.name}</p>
                   <p className="text-xs text-stone-500">
-                    ₹{item.product.price} / {item.product.unit}
+                    ₹{item.tier.price} / {item.tier.unit_label}
                   </p>
                 </div>
 
@@ -85,7 +85,7 @@ export default function CartPage() {
                   <div className="flex items-center gap-2 rounded-lg bg-maroon px-2 py-1">
                     <button
                       aria-label="Decrease quantity"
-                      onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.product.id, item.tier.id, item.quantity - 1)}
                       className="flex h-9 w-9 items-center justify-center rounded-full bg-cream/20 text-cream hover:bg-cream/30"
                     >
                       <Minus className="h-3.5 w-3.5" />
@@ -93,8 +93,8 @@ export default function CartPage() {
                     <span className="w-4 text-center text-sm font-bold text-cream">{item.quantity}</span>
                     <button
                       aria-label="Increase quantity"
-                      onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                      disabled={item.quantity >= item.product.stock_qty}
+                      onClick={() => updateQuantity(item.product.id, item.tier.id, item.quantity + 1)}
+                      disabled={item.quantity >= item.tier.stock_qty}
                       className="flex h-9 w-9 items-center justify-center rounded-full bg-cream/20 text-cream hover:bg-cream/30 disabled:opacity-40"
                     >
                       <Plus className="h-3.5 w-3.5" />
@@ -103,7 +103,7 @@ export default function CartPage() {
 
                   <div className="flex items-center gap-3">
                     <span className="font-serif font-bold text-maroon">
-                      ₹{(item.product.price * item.quantity).toFixed(0)}
+                      ₹{(item.tier.price * item.quantity).toFixed(0)}
                     </span>
                     <button
                       aria-label="Remove item"

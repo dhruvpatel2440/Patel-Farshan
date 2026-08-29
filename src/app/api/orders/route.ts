@@ -12,7 +12,7 @@ import { adminInbox } from '@/lib/notify'
 import type { Address, PaymentMode } from '@/types'
 
 interface CreateOrderBody {
-  items: { productId: string; quantity: number }[]
+  items: { productId: string; tierId: string; quantity: number }[]
   address: Address
   paymentMode: PaymentMode
   deliveryInstructions?: string
@@ -59,16 +59,14 @@ export async function POST(request: Request) {
       )
     }
 
-    // Re-fetch every product — never trust the client's price or stock.
-    const productIds = items.map((i) => i.productId)
-    const { data: products, error: productsError } = await admin
-      .from('products')
-      .select('*')
-      .in('id', productIds)
-      .eq('is_available', true)
-      .eq('is_deleted', false)
+    // Re-fetch every price tier — never trust the client's price or stock.
+    const tierIds = items.map((i) => i.tierId)
+    const { data: tiers, error: tiersError } = await admin
+      .from('product_price_tiers')
+      .select('*, product:products(*)')
+      .in('id', tierIds)
 
-    if (productsError || !products || products.length !== productIds.length) {
+    if (tiersError || !tiers || tiers.length !== tierIds.length) {
       return NextResponse.json(
         { error: 'One or more items in your cart are no longer available.' },
         { status: 409 }
@@ -76,18 +74,31 @@ export async function POST(request: Request) {
     }
 
     for (const item of items) {
-      const product = products.find((p) => p.id === item.productId)
-      if (!product || product.stock_qty < item.quantity) {
+      const tier = tiers.find((t) => t.id === item.tierId)
+      const product = tier?.product
+      if (
+        !tier ||
+        !product ||
+        tier.product_id !== item.productId ||
+        !product.is_available ||
+        product.is_deleted
+      ) {
         return NextResponse.json(
-          { error: `Sorry, ${product?.name ?? 'an item'} just went out of stock.` },
+          { error: 'One or more items in your cart are no longer available.' },
+          { status: 409 }
+        )
+      }
+      if (tier.stock_qty < item.quantity) {
+        return NextResponse.json(
+          { error: `Sorry, ${product.name} (${tier.unit_label}) just went out of stock.` },
           { status: 409 }
         )
       }
     }
 
     const subtotal = items.reduce((sum, item) => {
-      const product = products.find((p) => p.id === item.productId)!
-      return sum + product.price * item.quantity
+      const tier = tiers.find((t) => t.id === item.tierId)!
+      return sum + tier.price * item.quantity
     }, 0)
 
     if (subtotal < city.min_order_value) {
@@ -121,16 +132,19 @@ export async function POST(request: Request) {
     }
 
     const orderItems = items.map((item) => {
-      const product = products.find((p) => p.id === item.productId)!
+      const tier = tiers.find((t) => t.id === item.tierId)!
+      const product = tier.product
       return {
         order_id: order.id,
         product_id: product.id,
         product_name: product.name,
         product_name_gujarati: product.name_gujarati,
         product_image_url: product.image_url,
-        price_at_purchase: product.price,
+        tier_id: tier.id,
+        unit_label: tier.unit_label,
+        price_at_purchase: tier.price,
         quantity: item.quantity,
-        line_total: product.price * item.quantity,
+        line_total: tier.price * item.quantity,
       }
     })
 
@@ -143,40 +157,42 @@ export async function POST(request: Request) {
       note: 'Order placed by customer',
     })
 
-    // Conditional stock decrement per item — compensate if any fails.
-    const decremented: { productId: string; quantity: number }[] = []
+    // Conditional stock decrement per tier — compensate if any fails.
+    // (products.stock_qty is a derived aggregate, kept in sync by a DB
+    // trigger whenever product_price_tiers.stock_qty changes.)
+    const decremented: { tierId: string; quantity: number }[] = []
     for (const item of items) {
-      const product = products.find((p) => p.id === item.productId)!
+      const tier = tiers.find((t) => t.id === item.tierId)!
       const { data: updated } = await admin
-        .from('products')
-        .update({ stock_qty: product.stock_qty - item.quantity })
-        .eq('id', item.productId)
+        .from('product_price_tiers')
+        .update({ stock_qty: tier.stock_qty - item.quantity })
+        .eq('id', item.tierId)
         .gte('stock_qty', item.quantity)
         .select('id')
 
       if (!updated || updated.length === 0) {
-        // Roll back: restore already-decremented items and cancel the order.
+        // Roll back: restore already-decremented tiers and cancel the order.
         for (const done of decremented) {
-          const restoredProduct = products.find((p) => p.id === done.productId)!
+          const restoredTier = tiers.find((t) => t.id === done.tierId)!
           await admin
-            .from('products')
-            .update({ stock_qty: restoredProduct.stock_qty })
-            .eq('id', done.productId)
+            .from('product_price_tiers')
+            .update({ stock_qty: restoredTier.stock_qty })
+            .eq('id', done.tierId)
         }
         await admin
           .from('orders')
           .update({
             order_status: 'cancelled',
-            cancellation_reason: `${product.name} just went out of stock.`,
+            cancellation_reason: `${tier.product.name} just went out of stock.`,
           })
           .eq('id', order.id)
 
         return NextResponse.json(
-          { error: `Sorry, ${product.name} just went out of stock.` },
+          { error: `Sorry, ${tier.product.name} just went out of stock.` },
           { status: 409 }
         )
       }
-      decremented.push({ productId: item.productId, quantity: item.quantity })
+      decremented.push({ tierId: item.tierId, quantity: item.quantity })
     }
 
     // Clear the user's server-side cart.
@@ -193,7 +209,7 @@ export async function POST(request: Request) {
           orderNumber: order.order_number,
           customerName: address.full_name,
           items: orderItems.map((i) => ({
-            name: i.product_name,
+            name: `${i.product_name} (${i.unit_label})`,
             quantity: i.quantity,
             lineTotal: i.line_total,
           })),
@@ -207,7 +223,7 @@ export async function POST(request: Request) {
           orderNumber: order.order_number,
           customerName: address.full_name,
           items: orderItems.map((i) => ({
-            name: i.product_name,
+            name: `${i.product_name} (${i.unit_label})`,
             quantity: i.quantity,
             lineTotal: i.line_total,
           })),

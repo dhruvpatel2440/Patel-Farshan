@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Upload } from 'lucide-react'
+import { Plus, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { Category, Product } from '@/types'
@@ -15,20 +15,27 @@ interface ProductFormDialogProps {
   onSaved: () => void
 }
 
+interface TierForm {
+  id?: string
+  unit_label: string
+  price: string
+  stock_qty: string
+}
+
+const EMPTY_TIER: TierForm = { unit_label: '250g', price: '', stock_qty: '' }
+
 const EMPTY_FORM = {
   name: '',
   name_gujarati: '',
   category_id: '',
   description: '',
-  price: '',
-  unit: '250g',
-  stock_qty: '',
   is_available: true,
   is_featured: false,
 }
 
 export function ProductFormDialog({ open, onOpenChange, product, categories, onSaved }: ProductFormDialogProps) {
   const [form, setForm] = useState(EMPTY_FORM)
+  const [tiers, setTiers] = useState<TierForm[]>([EMPTY_TIER])
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -40,19 +47,40 @@ export function ProductFormDialog({ open, onOpenChange, product, categories, onS
         name_gujarati: product.name_gujarati,
         category_id: product.category_id,
         description: product.description ?? '',
-        price: String(product.price),
-        unit: product.unit,
-        stock_qty: String(product.stock_qty),
         is_available: product.is_available,
         is_featured: product.is_featured,
       })
+      const existingTiers = product.price_tiers ?? []
+      setTiers(
+        existingTiers.length > 0
+          ? existingTiers.map((t) => ({
+              id: t.id,
+              unit_label: t.unit_label,
+              price: String(t.price),
+              stock_qty: String(t.stock_qty),
+            }))
+          : [{ ...EMPTY_TIER, unit_label: product.unit, price: String(product.price), stock_qty: String(product.stock_qty) }]
+      )
       setImagePreview(product.image_url ?? null)
     } else {
       setForm(EMPTY_FORM)
+      setTiers([EMPTY_TIER])
       setImagePreview(null)
     }
     setImageFile(null)
   }, [product, open])
+
+  function updateTier(index: number, patch: Partial<TierForm>) {
+    setTiers((prev) => prev.map((t, i) => (i === index ? { ...t, ...patch } : t)))
+  }
+
+  function addTier() {
+    setTiers((prev) => [...prev, { ...EMPTY_TIER, unit_label: '' }])
+  }
+
+  function removeTier(index: number) {
+    setTiers((prev) => prev.filter((_, i) => i !== index))
+  }
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -66,8 +94,12 @@ export function ProductFormDialog({ open, onOpenChange, product, categories, onS
   }
 
   async function handleSave() {
-    if (!form.name || !form.name_gujarati || !form.category_id || !form.price) {
+    if (!form.name || !form.name_gujarati || !form.category_id) {
       toast.error('Please fill all required fields.')
+      return
+    }
+    if (tiers.some((t) => !t.unit_label.trim() || !t.price)) {
+      toast.error('Every size needs a label and a price.')
       return
     }
 
@@ -78,11 +110,14 @@ export function ProductFormDialog({ open, onOpenChange, product, categories, onS
         name_gujarati: form.name_gujarati,
         category_id: form.category_id,
         description: form.description,
-        price: Number(form.price),
-        unit: form.unit,
-        stock_qty: Number(form.stock_qty) || 0,
         is_available: form.is_available,
         is_featured: form.is_featured,
+        tiers: tiers.map((t) => ({
+          id: t.id,
+          unit_label: t.unit_label.trim(),
+          price: Number(t.price),
+          stock_qty: Number(t.stock_qty) || 0,
+        })),
       }
 
       const res = await fetch('/api/admin/products', {
@@ -172,35 +207,52 @@ export function ProductFormDialog({ open, onOpenChange, product, categories, onS
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-stone-700">Price (₹)</label>
-              <input
-                type="number"
-                min={1}
-                value={form.price}
-                onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                className="input-base"
-              />
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-sm font-medium text-stone-700">Sizes & Prices</label>
+              <button
+                type="button"
+                onClick={addTier}
+                className="flex items-center gap-1 text-xs font-semibold text-gold hover:text-gold-dark"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add size
+              </button>
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-stone-700">Unit</label>
-              <input
-                value={form.unit}
-                onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-                className="input-base"
-                placeholder="250g"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-stone-700">Stock Qty</label>
-              <input
-                type="number"
-                min={0}
-                value={form.stock_qty}
-                onChange={(e) => setForm((f) => ({ ...f, stock_qty: e.target.value }))}
-                className="input-base"
-              />
+            <div className="space-y-2">
+              {tiers.map((tier, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    value={tier.unit_label}
+                    onChange={(e) => updateTier(index, { unit_label: e.target.value })}
+                    placeholder="250g"
+                    className="input-base w-24"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    value={tier.price}
+                    onChange={(e) => updateTier(index, { price: e.target.value })}
+                    placeholder="Price ₹"
+                    className="input-base flex-1"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    value={tier.stock_qty}
+                    onChange={(e) => updateTier(index, { stock_qty: e.target.value })}
+                    placeholder="Stock"
+                    className="input-base flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeTier(index)}
+                    disabled={tiers.length === 1}
+                    className="shrink-0 text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Minus, Plus, ShoppingCart, Trash2 } from 'lucide-react'
@@ -14,9 +15,13 @@ interface ProductCardProps {
 
 export function ProductCard({ product, showAddToCart = true }: ProductCardProps) {
   const { addItem, removeItem, updateQuantity, getItemQuantity } = useCart()
-  const quantity = getItemQuantity(product.id)
-  const outOfStock = !product.is_available || product.stock_qty === 0
-  const lowStock = !outOfStock && product.stock_qty < 10
+  const tiers = product.price_tiers ?? []
+  const [selectedTierId, setSelectedTierId] = useState(tiers[0]?.id ?? '')
+  const selectedTier = tiers.find((t) => t.id === selectedTierId) ?? tiers[0]
+
+  const quantity = selectedTier ? getItemQuantity(product.id, selectedTier.id) : 0
+  const outOfStock = !product.is_available || !selectedTier || selectedTier.stock_qty === 0
+  const lowStock = !outOfStock && selectedTier.stock_qty < 10
 
   return (
     <div className="card-product group flex flex-col">
@@ -42,7 +47,7 @@ export function ProductCard({ product, showAddToCart = true }: ProductCardProps)
         )}
         {lowStock && (
           <span className="absolute right-2 top-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-            Only {product.stock_qty} left
+            Only {selectedTier.stock_qty} left
           </span>
         )}
       </Link>
@@ -56,15 +61,34 @@ export function ProductCard({ product, showAddToCart = true }: ProductCardProps)
         </Link>
 
         <div className="mt-1.5 flex items-baseline gap-1">
-          <span className="font-serif text-base font-bold text-maroon">₹{product.price}</span>
-          <span className="text-xs text-stone-400">/ {product.unit}</span>
+          <span className="font-serif text-base font-bold text-maroon">
+            ₹{selectedTier?.price ?? product.price}
+          </span>
+          {tiers.length <= 1 && (
+            <span className="text-xs text-stone-400">/ {selectedTier?.unit_label ?? product.unit}</span>
+          )}
         </div>
+
+        {tiers.length > 1 && (
+          <select
+            value={selectedTierId}
+            onChange={(e) => setSelectedTierId(e.target.value)}
+            className="mt-1.5 rounded-md border border-cream-dark bg-white px-2 py-1 text-xs text-stone-700"
+          >
+            {tiers.map((t) => (
+              <option key={t.id} value={t.id} disabled={t.stock_qty === 0}>
+                {t.unit_label}
+                {t.stock_qty === 0 ? ' — Out of stock' : ''}
+              </option>
+            ))}
+          </select>
+        )}
 
         <div className="my-2 h-px bg-gold/20" />
 
         {showAddToCart && (
           <div className="mt-auto">
-            {outOfStock ? (
+            {!selectedTier || outOfStock ? (
               <button
                 disabled
                 className="w-full cursor-not-allowed rounded-lg bg-stone-200 py-2 text-xs font-semibold text-stone-500"
@@ -76,7 +100,7 @@ export function ProductCard({ product, showAddToCart = true }: ProductCardProps)
                 <div className="flex items-center justify-between rounded-lg bg-maroon px-2 py-1.5">
                   <button
                     aria-label="Decrease quantity"
-                    onClick={() => updateQuantity(product.id, quantity - 1)}
+                    onClick={() => updateQuantity(product.id, selectedTier.id, quantity - 1)}
                     className="flex h-6 w-6 items-center justify-center rounded-full bg-cream/20 text-cream hover:bg-cream/30"
                   >
                     <Minus className="h-3.5 w-3.5" />
@@ -84,15 +108,15 @@ export function ProductCard({ product, showAddToCart = true }: ProductCardProps)
                   <span className="text-sm font-bold text-cream">{quantity}</span>
                   <button
                     aria-label="Increase quantity"
-                    onClick={() => updateQuantity(product.id, quantity + 1)}
-                    disabled={quantity >= product.stock_qty}
+                    onClick={() => updateQuantity(product.id, selectedTier.id, quantity + 1)}
+                    disabled={quantity >= selectedTier.stock_qty}
                     className="flex h-6 w-6 items-center justify-center rounded-full bg-cream/20 text-cream hover:bg-cream/30 disabled:opacity-40"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 <button
-                  onClick={() => removeItem(product.id)}
+                  onClick={() => removeItem(product.id, selectedTier.id)}
                   className="flex items-center justify-center gap-1 text-[11px] text-stone-400 hover:text-red-600"
                 >
                   <Trash2 className="h-3 w-3" /> Remove
@@ -100,7 +124,7 @@ export function ProductCard({ product, showAddToCart = true }: ProductCardProps)
               </div>
             ) : (
               <button
-                onClick={() => addItem(product)}
+                onClick={() => addItem(product, selectedTier)}
                 className={cn(
                   'flex w-full items-center justify-center gap-1.5 rounded-lg bg-maroon py-2 text-xs font-semibold text-cream',
                   'transition-all duration-150 hover:bg-maroon-light active:scale-[0.98]'

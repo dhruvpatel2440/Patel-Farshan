@@ -18,11 +18,18 @@ interface ProductDetailClientProps {
 export function ProductDetailClient({ product, related }: ProductDetailClientProps) {
   const router = useRouter()
   const { addItem, getItemQuantity, updateQuantity } = useCart()
+  const tiers = product.price_tiers ?? []
+  const [selectedTierId, setSelectedTierId] = useState(tiers[0]?.id ?? '')
+  const selectedTier = tiers.find((t) => t.id === selectedTierId) ?? tiers[0]
   const [qty, setQty] = useState(1)
   const [showStickyBar, setShowStickyBar] = useState(false)
 
-  const outOfStock = !product.is_available || product.stock_qty === 0
-  const inCartQty = getItemQuantity(product.id)
+  const outOfStock = !product.is_available || !selectedTier || selectedTier.stock_qty === 0
+  const inCartQty = selectedTier ? getItemQuantity(product.id, selectedTier.id) : 0
+
+  useEffect(() => {
+    setQty(1)
+  }, [selectedTierId])
 
   useEffect(() => {
     const onScroll = () => setShowStickyBar(window.scrollY > 420)
@@ -31,10 +38,11 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
   }, [])
 
   function handleAddToCart() {
+    if (!selectedTier) return
     if (inCartQty > 0) {
-      updateQuantity(product.id, inCartQty + qty)
+      updateQuantity(product.id, selectedTier.id, inCartQty + qty)
     } else {
-      for (let i = 0; i < qty; i++) addItem(product)
+      for (let i = 0; i < qty; i++) addItem(product, selectedTier)
     }
   }
 
@@ -94,9 +102,9 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
               <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
                 ✕ Out of Stock
               </span>
-            ) : product.stock_qty < 10 ? (
+            ) : selectedTier.stock_qty < 10 ? (
               <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-                ⚡ Only {product.stock_qty} left
+                ⚡ Only {selectedTier.stock_qty} left
               </span>
             ) : (
               <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-800">
@@ -106,9 +114,31 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
           </div>
 
           <div className="mt-3 flex items-baseline gap-1.5">
-            <span className="font-serif text-3xl font-bold text-maroon">₹{product.price}</span>
-            <span className="text-stone-400">/ {product.unit}</span>
+            <span className="font-serif text-3xl font-bold text-maroon">
+              ₹{selectedTier?.price ?? product.price}
+            </span>
+            <span className="text-stone-400">/ {selectedTier?.unit_label ?? product.unit}</span>
           </div>
+
+          {tiers.length > 1 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {tiers.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setSelectedTierId(t.id)}
+                  disabled={t.stock_qty === 0}
+                  className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                    t.id === selectedTierId
+                      ? 'border-maroon bg-maroon text-cream'
+                      : 'border-cream-dark bg-white text-stone-600 hover:border-maroon/40'
+                  }`}
+                >
+                  {t.unit_label}
+                  {t.stock_qty === 0 ? ' (Out of stock)' : ''}
+                </button>
+              ))}
+            </div>
+          )}
 
           <OrnamentalDivider size="sm" />
 
@@ -121,7 +151,7 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-medium text-stone-600">Quantity</span>
                 <span className="text-sm font-semibold text-maroon">
-                  Total: ₹{(product.price * qty).toFixed(0)}
+                  Total: ₹{(selectedTier.price * qty).toFixed(0)}
                 </span>
               </div>
               <div className="flex items-center justify-center gap-6">
@@ -135,7 +165,7 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
                 <span className="w-8 text-center text-2xl font-bold text-maroon">{qty}</span>
                 <button
                   aria-label="Increase quantity"
-                  onClick={() => setQty((q) => Math.min(product.stock_qty, q + 1))}
+                  onClick={() => setQty((q) => Math.min(selectedTier.stock_qty, q + 1))}
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-maroon text-cream hover:bg-maroon-light"
                 >
                   <Plus className="h-4 w-4" />
@@ -196,7 +226,7 @@ export function ProductDetailClient({ product, related }: ProductDetailClientPro
         <div className="fixed bottom-16 left-0 right-0 z-40 flex items-center justify-between gap-3 border-t border-gold/30 bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden">
           <div className="min-w-0">
             <p className="truncate text-xs font-semibold text-maroon">{product.name}</p>
-            <p className="text-xs text-stone-500">₹{product.price}</p>
+            <p className="text-xs text-stone-500">₹{selectedTier?.price ?? product.price}</p>
           </div>
           <button onClick={handleAddToCart} className="btn-primary shrink-0 !px-4 !py-2 text-sm">
             Add to Cart

@@ -33,7 +33,11 @@ export default function AdminProductsPage() {
   async function loadData() {
     const supabase = createClient()
     const [{ data: productsData }, { data: categoriesData }] = await Promise.all([
-      supabase.from('products').select('*').eq('is_deleted', false).order('created_at', { ascending: false }),
+      supabase
+        .from('products')
+        .select('*, price_tiers:product_price_tiers(*)')
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false }),
       supabase.from('categories').select('*').order('display_order', { ascending: true }),
     ])
     setProducts((productsData as Product[]) ?? [])

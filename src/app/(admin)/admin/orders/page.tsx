@@ -243,7 +243,8 @@ export default function AdminOrdersPage() {
                         {order.items?.map((item) => (
                           <div key={item.id} className="flex justify-between">
                             <span>
-                              {item.product_name} × {item.quantity}
+                              {item.product_name}
+                              {item.unit_label ? ` (${item.unit_label})` : ''} × {item.quantity}
                             </span>
                             <span>₹{item.line_total}</span>
                           </div>

@@ -1,14 +1,14 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { createClient } from '@/lib/supabase/client'
-import type { CartItem, Product } from '@/types'
+import type { CartItem, PriceTier, Product } from '@/types'
 
 interface CartState {
   items: CartItem[]
   isOpen: boolean
-  addItem: (product: Product) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  addItem: (product: Product, tier: PriceTier) => void
+  removeItem: (productId: string, tierId: string) => void
+  updateQuantity: (productId: string, tierId: string, quantity: number) => void
   clearCart: () => void
   openCart: () => void
   closeCart: () => void
@@ -18,39 +18,41 @@ interface CartState {
   syncWithDB: (userId: string) => Promise<void>
 }
 
+function sameLine(item: CartItem, productId: string, tierId: string) {
+  return item.product.id === productId && item.tier.id === tierId
+}
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
       isOpen: false,
 
-      addItem: (product) =>
+      addItem: (product, tier) =>
         set((state) => {
-          const existing = state.items.find((i) => i.product.id === product.id)
+          const existing = state.items.find((i) => sameLine(i, product.id, tier.id))
           if (existing) {
             return {
               items: state.items.map((i) =>
-                i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
+                sameLine(i, product.id, tier.id) ? { ...i, quantity: i.quantity + 1 } : i
               ),
             }
           }
-          return { items: [...state.items, { product, quantity: 1 }] }
+          return { items: [...state.items, { product, tier, quantity: 1 }] }
         }),
 
-      removeItem: (productId) =>
+      removeItem: (productId, tierId) =>
         set((state) => ({
-          items: state.items.filter((i) => i.product.id !== productId),
+          items: state.items.filter((i) => !sameLine(i, productId, tierId)),
         })),
 
-      updateQuantity: (productId, quantity) =>
+      updateQuantity: (productId, tierId, quantity) =>
         set((state) => {
           if (quantity <= 0) {
-            return { items: state.items.filter((i) => i.product.id !== productId) }
+            return { items: state.items.filter((i) => !sameLine(i, productId, tierId)) }
           }
           return {
-            items: state.items.map((i) =>
-              i.product.id === productId ? { ...i, quantity } : i
-            ),
+            items: state.items.map((i) => (sameLine(i, productId, tierId) ? { ...i, quantity } : i)),
           }
         }),
 
@@ -60,7 +62,7 @@ export const useCartStore = create<CartState>()(
       toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
 
       getItemCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
-      getSubtotal: () => get().items.reduce((sum, i) => sum + i.product.price * i.quantity, 0),
+      getSubtotal: () => get().items.reduce((sum, i) => sum + i.tier.price * i.quantity, 0),
 
       /**
        * Merge the local (guest) cart into the user's Supabase cart_items
@@ -76,22 +78,24 @@ export const useCartStore = create<CartState>()(
               {
                 user_id: userId,
                 product_id: item.product.id,
+                tier_id: item.tier.id,
                 quantity: item.quantity,
               },
-              { onConflict: 'user_id,product_id', ignoreDuplicates: false }
+              { onConflict: 'user_id,product_id,tier_id', ignoreDuplicates: false }
             )
           }
 
           const { data: rows } = await supabase
             .from('cart_items')
-            .select('quantity, product:products(*)')
+            .select('quantity, product:products(*), tier:product_price_tiers(*)')
             .eq('user_id', userId)
 
           if (rows) {
             const merged: CartItem[] = rows
-              .filter((r) => r.product)
+              .filter((r) => r.product && r.tier)
               .map((r) => ({
                 product: r.product as unknown as Product,
+                tier: r.tier as unknown as PriceTier,
                 quantity: r.quantity,
               }))
             set({ items: merged })
@@ -103,7 +107,13 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: 'patel-farsan-cart',
+      version: 1,
       partialize: (state) => ({ items: state.items }),
+      // v0 cart items had no `tier` field — drop them rather than crash.
+      migrate: (persisted) => {
+        const state = persisted as { items?: CartItem[] }
+        return { items: (state.items ?? []).filter((i) => i.tier?.id) }
+      },
     }
   )
 )
@@ -112,4 +122,4 @@ export const selectCartCount = (state: CartState) =>
   state.items.reduce((sum, i) => sum + i.quantity, 0)
 
 export const selectCartSubtotal = (state: CartState) =>
-  state.items.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+  state.items.reduce((sum, i) => sum + i.tier.price * i.quantity, 0)

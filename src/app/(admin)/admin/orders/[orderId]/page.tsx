@@ -73,13 +73,24 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             </tr>
           </thead>
           <tbody>
-            {order.items?.map((item: { id: string; product_name: string; quantity: number; line_total: number }) => (
-              <tr key={item.id} className="border-b border-stone-100 last:border-0">
-                <td className="py-1.5">{item.product_name}</td>
-                <td className="py-1.5">{item.quantity}</td>
-                <td className="py-1.5 text-right">₹{item.line_total}</td>
-              </tr>
-            ))}
+            {order.items?.map(
+              (item: {
+                id: string
+                product_name: string
+                unit_label?: string
+                quantity: number
+                line_total: number
+              }) => (
+                <tr key={item.id} className="border-b border-stone-100 last:border-0">
+                  <td className="py-1.5">
+                    {item.product_name}
+                    {item.unit_label ? ` (${item.unit_label})` : ''}
+                  </td>
+                  <td className="py-1.5">{item.quantity}</td>
+                  <td className="py-1.5 text-right">₹{item.line_total}</td>
+                </tr>
+              )
+            )}
           </tbody>
         </table>
 

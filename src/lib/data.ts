@@ -43,10 +43,11 @@ export const getFeaturedProducts = unstable_cache(
       const supabase = createPublicClient()
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('*, price_tiers:product_price_tiers(*)')
         .eq('is_featured', true)
         .eq('is_available', true)
         .eq('is_deleted', false)
+        .order('price', { foreignTable: 'product_price_tiers', ascending: true })
         .limit(limit)
       if (error) throw error
       return data ?? []
@@ -88,9 +89,10 @@ export const getProducts = unstable_cache(
       const supabase = createPublicClient()
       let query = supabase
         .from('products')
-        .select('*')
+        .select('*, price_tiers:product_price_tiers(*)')
         .eq('is_available', true)
         .eq('is_deleted', false)
+        .order('price', { foreignTable: 'product_price_tiers', ascending: true })
 
       if (params?.categoryId) query = query.eq('category_id', params.categoryId)
       if (params?.search) query = query.ilike('name', `%${params.search}%`)
@@ -127,9 +129,10 @@ export const getProductById = unstable_cache(
       const supabase = createPublicClient()
       const { data, error } = await supabase
         .from('products')
-        .select('*, category:categories(*)')
+        .select('*, category:categories(*), price_tiers:product_price_tiers(*)')
         .eq('id', id)
         .eq('is_deleted', false)
+        .order('price', { foreignTable: 'product_price_tiers', ascending: true })
         .single()
       if (error) throw error
       return data
@@ -147,11 +150,12 @@ export const getRelatedProducts = unstable_cache(
       const supabase = createPublicClient()
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('*, price_tiers:product_price_tiers(*)')
         .eq('category_id', categoryId)
         .eq('is_available', true)
         .eq('is_deleted', false)
         .neq('id', excludeId)
+        .order('price', { foreignTable: 'product_price_tiers', ascending: true })
         .limit(limit)
       if (error) throw error
       return data ?? []

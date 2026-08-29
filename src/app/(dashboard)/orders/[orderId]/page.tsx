@@ -95,7 +95,12 @@ export default function OrderTrackingPage({ params }: TrackingPageProps) {
                   <div className="flex h-full w-full items-center justify-center text-sm">🍽️</div>
                 )}
               </div>
-              <span className="flex-1 font-gujarati text-maroon">{item.product_name_gujarati}</span>
+              <span className="flex-1 font-gujarati text-maroon">
+                {item.product_name_gujarati}
+                {item.unit_label && (
+                  <span className="font-sans text-xs text-stone-400"> ({item.unit_label})</span>
+                )}
+              </span>
               <span className="text-stone-500">
                 {item.quantity} × ₹{item.price_at_purchase}
               </span>

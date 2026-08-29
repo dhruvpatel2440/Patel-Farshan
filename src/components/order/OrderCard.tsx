@@ -25,26 +25,26 @@ export function OrderCard({ order }: OrderCardProps) {
 
   async function handleReorder() {
     const supabase = createClient()
-    const productIds = items.map((i) => i.product_id)
-    const { data: products } = await supabase
-      .from('products')
-      .select('*')
-      .in('id', productIds)
-      .eq('is_available', true)
-      .eq('is_deleted', false)
+    const tierIds = items.map((i) => i.tier_id).filter((id): id is string => !!id)
+    const { data: tierRows } = tierIds.length
+      ? await supabase.from('product_price_tiers').select('*, product:products(*)').in('id', tierIds)
+      : { data: [] }
 
-    const available = products ?? []
+    const availableTiers = tierRows ?? []
+    let addedCount = 0
     for (const item of items) {
-      const product = available.find((p) => p.id === item.product_id)
-      if (product) {
-        for (let i = 0; i < item.quantity; i++) addItem(product)
+      const tierRow = item.tier_id ? availableTiers.find((t) => t.id === item.tier_id) : undefined
+      const product = tierRow?.product
+      if (tierRow && product && product.is_available && !product.is_deleted) {
+        for (let i = 0; i < item.quantity; i++) addItem(product, tierRow)
+        addedCount++
       }
     }
 
-    const skipped = items.length - available.length
-    if (available.length > 0) {
+    const skipped = items.length - addedCount
+    if (addedCount > 0) {
       toast.success(
-        `${available.length} item${available.length > 1 ? 's' : ''} added to cart${
+        `${addedCount} item${addedCount > 1 ? 's' : ''} added to cart${
           skipped > 0 ? ` · + ${skipped} unavailable item${skipped > 1 ? 's' : ''} skipped` : ''
         }`
       )

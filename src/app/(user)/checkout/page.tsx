@@ -63,7 +63,7 @@ export default function CheckoutPage() {
       })
   }, [user])
 
-  const subtotal = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+  const subtotal = items.reduce((sum, i) => sum + i.tier.price * i.quantity, 0)
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || null
   const city = selectedAddress?.city as City | undefined
   const deliveryCharge = city?.delivery_charge ?? 0
@@ -102,7 +102,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+          items: items.map((i) => ({ productId: i.product.id, tierId: i.tier.id, quantity: i.quantity })),
           address: selectedAddress,
           paymentMode,
           deliveryInstructions: instructions,
@@ -255,7 +255,7 @@ export default function CheckoutPage() {
 
                 <div className="space-y-2">
                   {items.map((item) => (
-                    <div key={item.product.id} className="flex items-center gap-2 text-sm">
+                    <div key={`${item.product.id}-${item.tier.id}`} className="flex items-center gap-2 text-sm">
                       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-cream">
                         {item.product.image_url ? (
                           <Image src={item.product.image_url} alt={item.product.name} fill className="object-cover" />
@@ -263,10 +263,13 @@ export default function CheckoutPage() {
                           <div className="flex h-full w-full items-center justify-center text-sm">🍽️</div>
                         )}
                       </div>
-                      <span className="flex-1 font-gujarati text-maroon">{item.product.name_gujarati}</span>
+                      <span className="flex-1 font-gujarati text-maroon">
+                        {item.product.name_gujarati}{' '}
+                        <span className="font-sans text-xs text-stone-400">({item.tier.unit_label})</span>
+                      </span>
                       <span className="text-stone-500">×{item.quantity}</span>
                       <span className="w-14 text-right font-semibold text-maroon">
-                        ₹{(item.product.price * item.quantity).toFixed(0)}
+                        ₹{(item.tier.price * item.quantity).toFixed(0)}
                       </span>
                     </div>
                   ))}

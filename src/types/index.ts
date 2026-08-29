@@ -18,6 +18,15 @@ export interface Category {
   image_url?: string
 }
 
+export interface PriceTier {
+  id: string
+  product_id: string
+  unit_label: string
+  price: number
+  stock_qty: number
+  sort_order: number
+}
+
 export interface Product {
   id: string
   category_id: string
@@ -29,6 +38,7 @@ export interface Product {
   price: number
   unit: string
   stock_qty: number
+  price_tiers?: PriceTier[]
   is_available: boolean
   is_featured: boolean
   created_at: string
@@ -93,6 +103,8 @@ export interface OrderItem {
   product_name: string
   product_name_gujarati: string
   product_image_url?: string
+  tier_id?: string
+  unit_label?: string
   price_at_purchase: number
   quantity: number
   line_total: number
@@ -109,6 +121,7 @@ export interface OrderStatusHistory {
 
 export interface CartItem {
   product: Product
+  tier: PriceTier
   quantity: number
 }
 
