@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { addressSchema, type AddressInput } from '@/lib/validations'
+import { formatWeightKg } from '@/lib/weight'
 import type { Address, City } from '@/types'
 
 interface AddressFormProps {
@@ -11,7 +12,10 @@ interface AddressFormProps {
   address?: Address | null
   submitLabel?: string
   isSubmitting?: boolean
-  subtotal?: number
+  /** Total weight (kg) of the cart being checked out. Omit outside a
+   * checkout context (e.g. managing addresses from the account page) so
+   * the minimum-order check doesn't block saving an address on its own. */
+  cartWeightKg?: number
 }
 
 export function AddressForm({
@@ -19,7 +23,7 @@ export function AddressForm({
   address,
   submitLabel = 'Save Address',
   isSubmitting,
-  subtotal = 0,
+  cartWeightKg,
 }: AddressFormProps) {
   const [cities, setCities] = useState<City[]>([])
   const [loadingCities, setLoadingCities] = useState(true)
@@ -45,8 +49,8 @@ export function AddressForm({
 
   const selectedCityId = watch('city_id')
   const selectedCity = cities.find((c) => c.id === selectedCityId)
-  const diff = selectedCity ? selectedCity.min_order_value - subtotal : 0
-  const isMinOrderMet = !selectedCity || diff <= 0
+  const diffKg = selectedCity && cartWeightKg !== undefined ? selectedCity.min_order_kg - cartWeightKg : 0
+  const isMinOrderMet = !selectedCity || cartWeightKg === undefined || diffKg <= 0
 
   useEffect(() => {
     fetch('/api/cities')
@@ -117,8 +121,10 @@ export function AddressForm({
 
         {selectedCity && isMinOrderMet && (
           <div className="mt-2 rounded-lg border border-gold bg-amber-50 p-2 text-xs text-amber-800">
-            🚚 Delivery to {selectedCity.name} — ₹{selectedCity.delivery_charge} · Min order ₹
-            {selectedCity.min_order_value}
+            🚚 Delivery to {selectedCity.name} — ₹{selectedCity.delivery_charge}
+            {selectedCity.min_order_kg > 0 && (
+              <> · Min order {formatWeightKg(selectedCity.min_order_kg)}</>
+            )}
             {selectedCity.estimated_delivery_time && (
               <> · ETA {selectedCity.estimated_delivery_time}</>
             )}
@@ -126,8 +132,8 @@ export function AddressForm({
         )}
         {selectedCity && !isMinOrderMet && (
           <div className="mt-2 rounded-lg border border-red-300 bg-red-50 p-2 text-xs text-red-700">
-            ⚠ Minimum order for {selectedCity.name} is ₹{selectedCity.min_order_value}. Add ₹
-            {diff.toFixed(0)} more.
+            ⚠ Minimum order for {selectedCity.name} is {formatWeightKg(selectedCity.min_order_kg)}. Add{' '}
+            {formatWeightKg(diffKg)} more.
           </div>
         )}
       </div>

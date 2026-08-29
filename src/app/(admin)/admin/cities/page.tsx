@@ -17,7 +17,7 @@ import { Toggle } from '@/components/admin/Toggle'
 const EMPTY_FORM = {
   name: '',
   delivery_charge: '',
-  min_order_value: '',
+  min_order_kg: '',
   estimated_delivery_time: '',
   is_active: true,
 }
@@ -53,7 +53,7 @@ export default function AdminCitiesPage() {
     setForm({
       name: city.name,
       delivery_charge: String(city.delivery_charge),
-      min_order_value: String(city.min_order_value),
+      min_order_kg: String(city.min_order_kg),
       estimated_delivery_time: city.estimated_delivery_time ?? '',
       is_active: city.is_active,
     })
@@ -61,7 +61,7 @@ export default function AdminCitiesPage() {
   }
 
   async function handleSave() {
-    if (!form.name || !form.delivery_charge || !form.min_order_value) {
+    if (!form.name || !form.delivery_charge || !form.min_order_kg) {
       toast.error('Please fill all fields.')
       return
     }
@@ -69,7 +69,7 @@ export default function AdminCitiesPage() {
     const payload = {
       name: form.name,
       delivery_charge: Number(form.delivery_charge),
-      min_order_value: Number(form.min_order_value),
+      min_order_kg: Number(form.min_order_kg),
       estimated_delivery_time: form.estimated_delivery_time.trim() || null,
       is_active: form.is_active,
     }
@@ -154,7 +154,7 @@ export default function AdminCitiesPage() {
                 <tr key={city.id} className="border-b border-stone-100 last:border-0">
                   <td className="p-3 font-semibold text-maroon">{city.name}</td>
                   <td className="p-3">₹{city.delivery_charge}</td>
-                  <td className="p-3">₹{city.min_order_value}</td>
+                  <td className="p-3">{city.min_order_kg} kg</td>
                   <td className="p-3 text-stone-600">{city.estimated_delivery_time || '—'}</td>
                   <td className="p-3">
                     <Toggle
@@ -205,12 +205,14 @@ export default function AdminCitiesPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-stone-700">Minimum Order Value (₹)</label>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Minimum Order (Kg)</label>
               <input
                 type="number"
                 min={0}
-                value={form.min_order_value}
-                onChange={(e) => setForm((f) => ({ ...f, min_order_value: e.target.value }))}
+                step={0.1}
+                value={form.min_order_kg}
+                onChange={(e) => setForm((f) => ({ ...f, min_order_kg: e.target.value }))}
+                placeholder="e.g. 1"
                 className="input-base"
               />
             </div>

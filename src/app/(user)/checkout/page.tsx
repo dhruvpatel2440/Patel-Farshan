@@ -12,6 +12,7 @@ import { useCartStore } from '@/store/cartStore'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { formatWeightKg } from '@/lib/weight'
 import type { Address, City, PaymentMode } from '@/types'
 import type { AddressInput } from '@/lib/validations'
 
@@ -64,11 +65,12 @@ export default function CheckoutPage() {
   }, [user])
 
   const subtotal = items.reduce((sum, i) => sum + i.tier.price * i.quantity, 0)
+  const cartWeightKg = items.reduce((sum, i) => sum + (i.tier.weight_grams * i.quantity) / 1000, 0)
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) || null
   const city = selectedAddress?.city as City | undefined
   const deliveryCharge = city?.delivery_charge ?? 0
   const total = subtotal + deliveryCharge
-  const minOrderMet = !city || subtotal >= city.min_order_value
+  const minOrderMet = !city || cartWeightKg >= city.min_order_kg
 
   async function handleSaveAddress(values: AddressInput, selectedCity: City) {
     if (!user) return
@@ -186,7 +188,7 @@ export default function CheckoutPage() {
                     <AddressForm
                       onSubmit={handleSaveAddress}
                       isSubmitting={savingAddress}
-                      subtotal={subtotal}
+                      cartWeightKg={cartWeightKg}
                       submitLabel="Save & Use This Address"
                     />
                   </div>
@@ -299,9 +301,10 @@ export default function CheckoutPage() {
                   className="input-base min-h-16 resize-none"
                 />
 
-                {!minOrderMet && (
+                {!minOrderMet && city && (
                   <p className="text-xs font-semibold text-red-600">
-                    Minimum order for {city?.name} is ₹{city?.min_order_value}. Add more items to continue.
+                    Minimum order for {city.name} is {formatWeightKg(city.min_order_kg)}. Add{' '}
+                    {formatWeightKg(city.min_order_kg - cartWeightKg)} more to continue.
                   </p>
                 )}
 

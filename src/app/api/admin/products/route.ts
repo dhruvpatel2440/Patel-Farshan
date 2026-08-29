@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { CATALOG_TAG } from '@/lib/data'
+import { parseWeightGrams } from '@/lib/weight'
 
 type AdminClient = ReturnType<typeof createAdminClient>
 
@@ -32,6 +33,7 @@ async function replaceTiers(admin: AdminClient, productId: string, tiers: TierIn
       product_id: productId,
       unit_label: tier.unit_label,
       price: tier.price,
+      weight_grams: parseWeightGrams(tier.unit_label),
       stock_qty: tier.stock_qty,
       sort_order: index,
     }

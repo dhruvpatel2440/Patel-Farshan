@@ -9,6 +9,7 @@ import {
   orderConfirmationText,
 } from '@/lib/emailTemplates'
 import { adminInbox } from '@/lib/notify'
+import { formatWeightKg } from '@/lib/weight'
 import type { Address, PaymentMode } from '@/types'
 
 interface CreateOrderBody {
@@ -101,9 +102,14 @@ export async function POST(request: Request) {
       return sum + tier.price * item.quantity
     }, 0)
 
-    if (subtotal < city.min_order_value) {
+    const orderWeightKg = items.reduce((sum, item) => {
+      const tier = tiers.find((t) => t.id === item.tierId)!
+      return sum + (tier.weight_grams * item.quantity) / 1000
+    }, 0)
+
+    if (orderWeightKg < city.min_order_kg) {
       return NextResponse.json(
-        { error: `Minimum order for ${city.name} is ₹${city.min_order_value}.` },
+        { error: `Minimum order for ${city.name} is ${formatWeightKg(city.min_order_kg)}.` },
         { status: 400 }
       )
     }

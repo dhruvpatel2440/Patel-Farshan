@@ -23,6 +23,7 @@ export interface PriceTier {
   product_id: string
   unit_label: string
   price: number
+  weight_grams: number
   stock_qty: number
   sort_order: number
 }
@@ -48,7 +49,7 @@ export interface City {
   id: string
   name: string
   delivery_charge: number
-  min_order_value: number
+  min_order_kg: number
   estimated_delivery_time?: string | null
   is_active: boolean
 }
