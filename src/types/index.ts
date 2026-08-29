@@ -126,6 +126,19 @@ export interface CartItem {
   quantity: number
 }
 
+export type EmailStatus = 'sent' | 'failed' | 'skipped'
+
+export interface EmailLog {
+  id: string
+  context: string
+  recipient_email: string
+  recipient_name: string | null
+  subject: string
+  status: EmailStatus
+  error: string | null
+  created_at: string
+}
+
 export interface Feedback {
   id: string
   user_id: string
