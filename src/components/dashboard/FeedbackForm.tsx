@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { format } from 'date-fns'
 import { Loader2, MessageSquareHeart, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { StarRatingInput } from '@/components/shared/StarRatingInput'
@@ -10,20 +11,15 @@ import type { Feedback } from '@/types'
 export function FeedbackForm() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [existing, setExisting] = useState<Feedback | null>(null)
+  const [items, setItems] = useState<Feedback[]>([])
   const [rating, setRating] = useState(0)
   const [message, setMessage] = useState('')
-  const [editing, setEditing] = useState(false)
 
   useEffect(() => {
     fetch('/api/feedback')
       .then((r) => r.json())
       .then((data) => {
-        if (data.feedback) {
-          setExisting(data.feedback)
-          setRating(data.feedback.rating)
-          setMessage(data.feedback.message || '')
-        }
+        setItems(data.feedback ?? [])
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -46,9 +42,13 @@ export function FeedbackForm() {
         toast.error(data.error || 'Could not save your feedback.')
         return
       }
-      setExisting(data.feedback)
-      setEditing(false)
-      toast.success(existing ? 'Feedback updated!' : 'Thanks for your feedback!')
+      // Customers can leave more than one review, so a successful submit
+      // clears the compose box for the next one rather than "locking in" a
+      // single answer the way the old one-review-per-user design did.
+      setItems((prev) => [data.feedback, ...prev])
+      setRating(0)
+      setMessage('')
+      toast.success('Thanks for your feedback!')
     } catch {
       toast.error('Unable to reach the server. Please try again.')
     } finally {
@@ -57,8 +57,6 @@ export function FeedbackForm() {
   }
 
   if (loading) return null
-
-  const showForm = !existing || editing
 
   return (
     // A plain white bordered box here read as just another list item and got
@@ -75,77 +73,63 @@ export function FeedbackForm() {
         </span>
         <div>
           <h3 className="flex items-center gap-1.5 font-serif text-lg font-bold text-cream">
-            {existing ? 'Your Feedback' : "We'd Love Your Feedback!"}
-            {!existing && <Sparkles className="h-4 w-4 text-gold" />}
+            We&apos;d Love Your Feedback!
+            <Sparkles className="h-4 w-4 text-gold" />
           </h3>
-          {!existing && (
-            <p className="text-xs text-gold/90">Takes 10 seconds — great reviews get featured on our homepage</p>
-          )}
+          <p className="text-xs text-gold/90">Takes 10 seconds — great reviews get featured on our homepage</p>
         </div>
       </div>
 
-      {!showForm && existing && (
-        <div className="relative mt-4 rounded-xl bg-cream p-4">
-          <StarRatingDisplay rating={existing.rating} />
-          {existing.message && (
-            <p className="mt-2 text-sm italic text-stone-600">&ldquo;{existing.message}&rdquo;</p>
-          )}
-          <div className="mt-3 flex items-center justify-between">
-            <span
-              className={
-                existing.is_approved
-                  ? 'rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700'
-                  : 'rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700'
-              }
-            >
-              {existing.is_approved ? '✓ Published on our site' : 'Pending review'}
-            </span>
-            <button
-              onClick={() => setEditing(true)}
-              className="text-xs font-semibold text-maroon hover:text-gold-dark"
-            >
-              Edit
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="relative mt-4 space-y-3 rounded-xl bg-cream p-4">
+        <p className="text-sm text-stone-500">
+          How was your experience with Patel Farsan? Approved reviews are shown on our
+          homepage.
+        </p>
+        <StarRatingInput value={rating} onChange={setRating} />
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          maxLength={500}
+          placeholder="Tell us what you liked (optional)…"
+          className="input-base min-h-20 resize-none bg-white"
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          className="btn-primary flex w-full items-center justify-center gap-2 disabled:opacity-60"
+        >
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          {saving ? 'Saving…' : 'Submit Feedback'}
+        </button>
+      </div>
 
-      {showForm && (
-        <div className="relative mt-4 space-y-3 rounded-xl bg-cream p-4">
-          <p className="text-sm text-stone-500">
-            How was your experience with Patel Farsan? Approved reviews are shown on our
-            homepage.
+      {items.length > 0 && (
+        <div className="relative mt-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gold/80">
+            Your Feedback History
           </p>
-          <StarRatingInput value={rating} onChange={setRating} />
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            maxLength={500}
-            placeholder="Tell us what you liked (optional)…"
-            className="input-base min-h-20 resize-none bg-white"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={handleSubmit}
-              disabled={saving}
-              className="btn-primary flex flex-1 items-center justify-center gap-2 disabled:opacity-60"
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {saving ? 'Saving…' : existing ? 'Update Feedback' : 'Submit Feedback'}
-            </button>
-            {existing && (
-              <button
-                onClick={() => {
-                  setEditing(false)
-                  setRating(existing.rating)
-                  setMessage(existing.message || '')
-                }}
-                className="btn-outline"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
+          {items.map((item) => (
+            <div key={item.id} className="rounded-xl bg-cream p-4">
+              <StarRatingDisplay rating={item.rating} />
+              {item.message && (
+                <p className="mt-2 text-sm italic text-stone-600">&ldquo;{item.message}&rdquo;</p>
+              )}
+              <div className="mt-2 flex items-center justify-between">
+                <span
+                  className={
+                    item.is_approved
+                      ? 'rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700'
+                      : 'rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700'
+                  }
+                >
+                  {item.is_approved ? '✓ Published on our site' : 'Pending review'}
+                </span>
+                <span className="text-[11px] text-stone-400">
+                  {format(new Date(item.created_at), 'd MMM yyyy')}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

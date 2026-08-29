@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-/** The signed-in customer's own feedback, or null if they haven't left any. */
+/** All of the signed-in customer's own feedback, most recent first. */
 export async function GET() {
   const supabase = await createClient()
   const {
@@ -15,14 +15,14 @@ export async function GET() {
     .from('feedback')
     .select('*')
     .eq('user_id', user.id)
-    .maybeSingle()
+    .order('created_at', { ascending: false })
 
-  return NextResponse.json({ feedback: data })
+  return NextResponse.json({ feedback: data ?? [] })
 }
 
 /**
- * Submit or edit feedback. Always upserts on user_id — one review per
- * customer, editable rather than stackable.
+ * Submit a new piece of feedback. Customers can leave as many as they like —
+ * e.g. one per order — each moderated independently.
  *
  * Uses the admin client for the write, deliberately: it is the only path
  * that can set `is_approved`, and it always forces it to false here. If a
@@ -52,16 +52,13 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const { data, error } = await admin
     .from('feedback')
-    .upsert(
-      {
-        user_id: user.id,
-        user_name: profile?.name || 'A customer',
-        rating,
-        message: message || null,
-        is_approved: false,
-      },
-      { onConflict: 'user_id' }
-    )
+    .insert({
+      user_id: user.id,
+      user_name: profile?.name || 'A customer',
+      rating,
+      message: message || null,
+      is_approved: false,
+    })
     .select()
     .single()
 
