@@ -18,7 +18,13 @@ export function generateOtp(): string {
  * (only a million candidates), so the server secret is mixed in.
  */
 function pepper(): string {
-  return process.env.OTP_PEPPER || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const value = process.env.OTP_PEPPER
+  if (!value) {
+    throw new Error(
+      'OTP_PEPPER is not set. Generate one with `openssl rand -hex 32` and add it to your environment.'
+    )
+  }
+  return value
 }
 
 export function hashOtp(code: string): string {

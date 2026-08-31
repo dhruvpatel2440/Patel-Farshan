@@ -6,6 +6,17 @@ import { DAILY_EMAIL_LIMIT } from '@/lib/email'
 const PAGE_SIZE = 50
 
 /**
+ * Strips the characters PostgREST uses as filter syntax — separators, quoting
+ * parens, the column/operator dot, wildcards and the embedded-resource colon.
+ * The search term is interpolated straight into `.or(...)`, so without this a
+ * caller could append their own conditions and read rows the filter meant to
+ * exclude.
+ */
+function sanitizeSearch(term: string): string {
+  return term.replace(/[,().*:%]/g, '').trim()
+}
+
+/**
  * Email audit log for the admin panel: a page of recent attempts plus the
  * counts behind today's Brevo quota (300 sends/day on the free plan).
  *
@@ -33,7 +44,8 @@ export async function GET(request: Request) {
   if (status && status !== 'all') query = query.eq('status', status)
   if (context && context !== 'all') query = query.eq('context', context)
   if (search) {
-    query = query.or(`recipient_email.ilike.%${search}%,subject.ilike.%${search}%`)
+    const safe = sanitizeSearch(search)
+    if (safe) query = query.or(`recipient_email.ilike.%${safe}%,subject.ilike.%${safe}%`)
   }
 
   const { data: logs, count, error } = await query

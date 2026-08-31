@@ -19,8 +19,15 @@ import { cookies } from 'next/headers'
  */
 
 function secret(): string {
-  // Reuses an existing server-only secret so deployment needs no new env var.
-  return process.env.ADMIN_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  // Deliberately its own secret: signing keys must not double as database
+  // credentials, and rotating one must not force rotating the other.
+  const value = process.env.ADMIN_SESSION_SECRET
+  if (!value) {
+    throw new Error(
+      'ADMIN_SESSION_SECRET is not set. Generate one with `openssl rand -hex 32` and add it to your environment.'
+    )
+  }
+  return value
 }
 
 function sign(payload: string): string {

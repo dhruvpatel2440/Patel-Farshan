@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { clientIp, rateLimit } from '@/lib/rateLimit'
+
+/** Order numbers are sequential, so lookups are rate limited per IP. */
+const TRACK_LIMIT = 5
+const TRACK_WINDOW_MS = 10 * 60 * 1000
 
 /**
  * Public order lookup — no auth required. Bypasses RLS via the service-role
@@ -7,6 +12,19 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * number and the phone number on its address snapshot.
  */
 export async function GET(request: NextRequest) {
+  const limit = await rateLimit(clientIp(request), {
+    limit: TRACK_LIMIT,
+    windowMs: TRACK_WINDOW_MS,
+    prefix: 'track',
+  })
+
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many lookups. Please try again in a few minutes.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const orderNumber = searchParams.get('orderNumber')?.trim()
   const phone = searchParams.get('phone')?.trim()

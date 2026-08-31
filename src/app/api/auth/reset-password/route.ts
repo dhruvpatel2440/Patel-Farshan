@@ -12,8 +12,8 @@ export async function POST(request: Request) {
   if (!email || !/^\d{6}$/.test(code)) {
     return NextResponse.json({ error: 'Enter the 6-digit code.' }, { status: 400 })
   }
-  if (password.length < 6) {
-    return NextResponse.json({ error: 'Password must be at least 6 characters.' }, { status: 400 })
+  if (password.length < 8) {
+    return NextResponse.json({ error: 'Password must be at least 8 characters.' }, { status: 400 })
   }
 
   const admin = createAdminClient()

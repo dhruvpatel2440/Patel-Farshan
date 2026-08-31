@@ -7,6 +7,17 @@ const PAGE_SIZE = 50
 const STATS_SAMPLE = 1000
 
 /**
+ * Strips the characters PostgREST uses as filter syntax — separators, quoting
+ * parens, the column/operator dot, wildcards and the embedded-resource colon.
+ * The search term is interpolated straight into `.or(...)`, so without this a
+ * caller could append their own conditions and read rows the filter meant to
+ * exclude.
+ */
+function sanitizeSearch(term: string): string {
+  return term.replace(/[,().*:%]/g, '').trim()
+}
+
+/**
  * Admin activity log: a filtered page of actions, plus performance stats
  * derived from the most recent entries so slow operations stand out.
  */
@@ -31,9 +42,12 @@ export async function GET(request: Request) {
   if (status && status !== 'all') query = query.eq('status', status)
   if (action && action !== 'all') query = query.eq('action', action)
   if (search) {
-    query = query.or(
-      `summary.ilike.%${search}%,actor_name.ilike.%${search}%,actor_email.ilike.%${search}%,entity_id.ilike.%${search}%`
-    )
+    const safe = sanitizeSearch(search)
+    if (safe) {
+      query = query.or(
+        `summary.ilike.%${safe}%,actor_name.ilike.%${safe}%,actor_email.ilike.%${safe}%,entity_id.ilike.%${safe}%`
+      )
+    }
   }
 
   const { data: logs, count, error } = await query

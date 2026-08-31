@@ -8,7 +8,7 @@ export const registerSchema = z
     phone: z.string().regex(phoneRegex, 'Enter a valid 10-digit mobile number'),
     // Required since signup now sends a verification code to this address.
     email: z.string().trim().min(1, 'Enter your email').email('Enter a valid email'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
     terms: z.boolean().refine((v) => v === true, {
       message: 'You must accept the terms to continue',
