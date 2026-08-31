@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { otpMatches, OTP_MAX_ATTEMPTS } from '@/lib/otp'
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/validations'
 
 /** Step 2 of password reset: verify the code, then set the new password. */
 export async function POST(request: Request) {
@@ -12,8 +13,8 @@ export async function POST(request: Request) {
   if (!email || !/^\d{6}$/.test(code)) {
     return NextResponse.json({ error: 'Enter the 6-digit code.' }, { status: 400 })
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: 'Password must be at least 8 characters.' }, { status: 400 })
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return NextResponse.json({ error: `${PASSWORD_MIN_MESSAGE}.` }, { status: 400 })
   }
 
   const admin = createAdminClient()

@@ -20,6 +20,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import type { Address, City } from '@/types'
 import type { AddressInput } from '@/lib/validations'
+import { PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE } from '@/lib/validations'
 
 type TabKey = 'profile' | 'addresses'
 
@@ -84,8 +85,8 @@ export default function AccountPage() {
   }
 
   async function handleUpdatePassword() {
-    if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters.')
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      toast.error(`${PASSWORD_MIN_MESSAGE}.`)
       return
     }
     if (newPassword !== confirmPassword) {

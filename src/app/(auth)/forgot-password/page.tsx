@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, Eye, EyeOff, Loader2, MailCheck } from 'lucide-react'
+import { PASSWORD_MIN_LENGTH } from '@/lib/validations'
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
@@ -52,7 +53,7 @@ export default function ForgotPasswordPage() {
   }
 
   async function submitReset() {
-    if (code.length !== 6 || password.length < 6) return
+    if (code.length !== 6 || password.length < PASSWORD_MIN_LENGTH) return
     setError(null)
     setBusy(true)
     try {
@@ -177,14 +178,14 @@ export default function ForgotPasswordPage() {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  {password.length > 0 && password.length < 6 && (
-                    <p className="mt-1 text-xs text-red-600">At least 6 characters.</p>
+                  {password.length > 0 && password.length < PASSWORD_MIN_LENGTH && (
+                    <p className="mt-1 text-xs text-red-600">At least {PASSWORD_MIN_LENGTH} characters.</p>
                   )}
                 </div>
 
                 <button
                   onClick={submitReset}
-                  disabled={busy || code.length !== 6 || password.length < 6}
+                  disabled={busy || code.length !== 6 || password.length < PASSWORD_MIN_LENGTH}
                   className="btn-primary flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {busy && <Loader2 className="h-4 w-4 animate-spin" />}

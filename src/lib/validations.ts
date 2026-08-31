@@ -2,13 +2,22 @@ import { z } from 'zod'
 
 const phoneRegex = /^[6-9]\d{9}$/
 
+/**
+ * Minimum password length, shared by every place a password is chosen —
+ * registration, reset, and the in-app change. They drifted apart once
+ * already; importing one constant is what stops the weakest of them from
+ * quietly becoming the real policy.
+ */
+export const PASSWORD_MIN_LENGTH = 8
+export const PASSWORD_MIN_MESSAGE = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`
+
 export const registerSchema = z
   .object({
     name: z.string().trim().min(2, 'Enter your full name'),
     phone: z.string().regex(phoneRegex, 'Enter a valid 10-digit mobile number'),
     // Required since signup now sends a verification code to this address.
     email: z.string().trim().min(1, 'Enter your email').email('Enter a valid email'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_MIN_MESSAGE),
     confirmPassword: z.string(),
     terms: z.boolean().refine((v) => v === true, {
       message: 'You must accept the terms to continue',

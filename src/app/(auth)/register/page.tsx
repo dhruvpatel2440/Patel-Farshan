@@ -8,12 +8,12 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Eye, EyeOff, AlertTriangle, Loader2, MailCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { registerSchema, type RegisterInput } from '@/lib/validations'
+import { PASSWORD_MIN_LENGTH, registerSchema, type RegisterInput } from '@/lib/validations'
 import { cn } from '@/lib/utils'
 
 function passwordScore(password: string) {
   let score = 0
-  if (password.length >= 6) score++
+  if (password.length >= PASSWORD_MIN_LENGTH) score++
   if (password.length >= 10) score++
   if (/[A-Z]/.test(password) && /[0-9]/.test(password)) score++
   if (/[^A-Za-z0-9]/.test(password)) score++
