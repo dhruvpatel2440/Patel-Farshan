@@ -1,18 +1,40 @@
+import { Ratelimit, type Duration } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
+
 /**
- * Fixed-window rate limiting for public endpoints.
+ * Rate limiting for public endpoints, backed by Upstash Redis.
  *
- * Uses Upstash Redis when UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN
- * are set (over the REST API, so no extra dependency), and otherwise falls
- * back to an in-process Map.
+ * Upstash is used whenever UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
+ * are present, which is the case in every deployed environment. It gives a
+ * sliding window shared across every serverless instance, so the limit is a
+ * real ceiling rather than a per-instance one.
  *
- * NOTE: in-memory limiter is per-instance on Vercel serverless — each lambda
- * keeps its own counters, so the effective limit is (instances x limit) and
- * counters reset on cold start. Fine as a speed bump; configure Upstash for a
- * limit that actually holds across the fleet.
+ * NOTE: in-memory limiter is per-instance on Vercel serverless — it is the
+ * fallback for local development and for preview builds that have no Upstash
+ * credentials, and it also catches an Upstash outage rather than failing the
+ * request. It is a fixed window and its counters die with the instance, so it
+ * is a speed bump, not the real control.
  */
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN
+const hasUpstash = Boolean(
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+)
+
+/**
+ * How long the limiter may spend talking to Upstash before the request gives
+ * up and uses the local fallback. The rate limit must never become the slowest
+ * part of an order lookup: the client's default is 5 retries with exponential
+ * backoff, which turns an Upstash outage into a 5-second hang on every
+ * request. One quick retry, then fall back.
+ */
+const UPSTASH_TIMEOUT_MS = 1000
+
+export interface RateLimitOptions {
+  limit: number
+  /** Upstash duration string, e.g. '10 m', '30 s', '1 h'. */
+  window: Duration
+  prefix?: string
+}
 
 export interface RateLimitResult {
   allowed: boolean
@@ -22,8 +44,45 @@ export interface RateLimitResult {
   retryAfter: number
 }
 
+/**
+ * Limiters are cached per configuration: constructing one opens a client, and
+ * route modules are re-entered on every request in dev.
+ */
+const limiters = new Map<string, Ratelimit>()
+
+function getLimiter({ limit, window, prefix = 'rl' }: RateLimitOptions): Ratelimit {
+  const key = `${prefix}:${limit}:${window}`
+  let limiter = limiters.get(key)
+  if (!limiter) {
+    limiter = new Ratelimit({
+      redis: Redis.fromEnv({ retry: { retries: 1, backoff: () => 100 } }),
+      limiter: Ratelimit.slidingWindow(limit, window),
+      prefix,
+      // Short-circuits repeat offenders in-process, so a blocked caller
+      // hammering the endpoint doesn't cost a Redis round trip each time.
+      ephemeralCache: new Map(),
+    })
+    limiters.set(key, limiter)
+  }
+  return limiter
+}
+
 /** Counters for the in-memory fallback, keyed by `${prefix}:${identifier}`. */
 const buckets = new Map<string, { count: number; expiresAt: number }>()
+
+const DURATION_MS: Record<string, number> = {
+  ms: 1,
+  s: 1000,
+  m: 60 * 1000,
+  h: 60 * 60 * 1000,
+  d: 24 * 60 * 60 * 1000,
+}
+
+function windowToMs(window: Duration): number {
+  const match = /^(\d+)\s*(ms|s|m|h|d)$/.exec(window)
+  if (!match) throw new Error(`Unrecognised rate limit window: ${window}`)
+  return Number(match[1]) * DURATION_MS[match[2]]
+}
 
 function memoryLimit(key: string, limit: number, windowMs: number): RateLimitResult {
   const now = Date.now()
@@ -37,66 +96,46 @@ function memoryLimit(key: string, limit: number, windowMs: number): RateLimitRes
   }
 
   bucket.count += 1
-  const retryAfter = Math.ceil((bucket.expiresAt - now) / 1000)
   return {
     allowed: bucket.count <= limit,
     limit,
     remaining: Math.max(0, limit - bucket.count),
-    retryAfter,
-  }
-}
-
-/**
- * Returns null when Upstash isn't configured or the call fails — the caller
- * then degrades to the in-memory limiter rather than failing the request.
- */
-async function redisLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult | null> {
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) return null
-
-  try {
-    const res = await fetch(`${UPSTASH_URL}/pipeline`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${UPSTASH_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      // INCR creates the counter; PEXPIRE ... NX only sets the TTL on the
-      // first hit, so the window is fixed rather than sliding forward.
-      body: JSON.stringify([
-        ['INCR', key],
-        ['PEXPIRE', key, String(windowMs), 'NX'],
-        ['PTTL', key],
-      ]),
-      cache: 'no-store',
-    })
-
-    if (!res.ok) return null
-
-    const parts = (await res.json()) as Array<{ result?: number; error?: string }>
-    const count = parts?.[0]?.result
-    if (typeof count !== 'number') return null
-
-    const pttl = parts?.[2]?.result
-    const retryAfter = typeof pttl === 'number' && pttl > 0 ? Math.ceil(pttl / 1000) : Math.ceil(windowMs / 1000)
-
-    return {
-      allowed: count <= limit,
-      limit,
-      remaining: Math.max(0, limit - count),
-      retryAfter,
-    }
-  } catch {
-    return null
+    retryAfter: Math.ceil((bucket.expiresAt - now) / 1000),
   }
 }
 
 /** Counts one hit against `identifier` and reports whether it's allowed. */
 export async function rateLimit(
   identifier: string,
-  { limit, windowMs, prefix = 'rl' }: { limit: number; windowMs: number; prefix?: string }
+  options: RateLimitOptions
 ): Promise<RateLimitResult> {
-  const key = `${prefix}:${identifier}`
-  return (await redisLimit(key, limit, windowMs)) ?? memoryLimit(key, limit, windowMs)
+  const { limit, window, prefix = 'rl' } = options
+
+  if (hasUpstash) {
+    try {
+      // Racing the call bounds a hung connection too, not just a failing one.
+      const pending = getLimiter(options).limit(identifier)
+      pending.catch(() => {}) // the loser of the race must not go unhandled
+      const result = await Promise.race([
+        pending,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), UPSTASH_TIMEOUT_MS)),
+      ])
+
+      if (result) {
+        return {
+          allowed: result.success,
+          limit,
+          remaining: result.remaining,
+          // `reset` is a unix timestamp in ms.
+          retryAfter: Math.max(0, Math.ceil((result.reset - Date.now()) / 1000)),
+        }
+      }
+    } catch {
+      // Fall through to the in-memory limiter rather than failing the request.
+    }
+  }
+
+  return memoryLimit(`${prefix}:${identifier}`, limit, windowToMs(window))
 }
 
 /**

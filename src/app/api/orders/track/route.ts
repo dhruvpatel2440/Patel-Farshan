@@ -2,9 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { clientIp, rateLimit } from '@/lib/rateLimit'
 
-/** Order numbers are sequential, so lookups are rate limited per IP. */
+/** This endpoint returns a customer's address and phone, so lookups are
+ *  rate limited per IP. */
 const TRACK_LIMIT = 5
-const TRACK_WINDOW_MS = 10 * 60 * 1000
+const TRACK_WINDOW = '10 m'
 
 /**
  * Public order lookup — no auth required. Bypasses RLS via the service-role
@@ -14,7 +15,7 @@ const TRACK_WINDOW_MS = 10 * 60 * 1000
 export async function GET(request: NextRequest) {
   const limit = await rateLimit(clientIp(request), {
     limit: TRACK_LIMIT,
-    windowMs: TRACK_WINDOW_MS,
+    window: TRACK_WINDOW,
     prefix: 'track',
   })
 
