@@ -10,9 +10,20 @@ import path from 'path'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 const supabaseWs = supabaseUrl.replace(/^https:/, 'wss:')
 
+const isDev = process.env.NODE_ENV !== 'production'
+
 const csp = [
   "default-src 'self'",
-  "script-src 'self'",
+  // 'unsafe-inline' is required by Next itself: the streamed RSC payload is
+  // delivered as inline self.__next_f.push(...) scripts whose hashes change
+  // on every page and every build, so hashes can't be pinned. Removing it
+  // means nonces from middleware, which forces every page to render
+  // dynamically. The tradeoff is accepted: this directive still blocks
+  // remote script hosts and eval, and XSS defence rests on React escaping.
+  // React's development build uses eval() for debugging features
+  // (reconstructing callstacks); it never does in production, so the
+  // allowance is scoped to `next dev` and never reaches the deployed site.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   // Tailwind and the UI libraries emit inline style attributes.
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://*.supabase.co ${supabaseUrl}`,
@@ -54,9 +65,9 @@ const nextConfig: NextConfig = {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
           },
-          // Report-only for now: check the browser console for violations,
-          // then switch this key to 'Content-Security-Policy' to enforce.
-          { key: 'Content-Security-Policy-Report-Only', value: csp },
+          // Enforcing. Verified report-only against the deployed site first:
+          // the only violations were the inline scripts allowed above.
+          { key: 'Content-Security-Policy', value: csp },
         ],
       },
     ]
