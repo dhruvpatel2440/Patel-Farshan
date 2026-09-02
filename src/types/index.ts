@@ -165,6 +165,13 @@ export interface EmailLog {
   created_at: string
 }
 
+export interface ShopSettings {
+  id: true
+  is_open: boolean
+  closed_message: string | null
+  updated_at: string
+}
+
 export interface Feedback {
   id: string
   user_id: string

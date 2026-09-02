@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/publicClient'
-import type { Category, City, Feedback, Product } from '@/types'
+import type { Category, City, Feedback, Product, ShopSettings } from '@/types'
 
 /**
  * All fetchers fail soft (return []) instead of throwing — the site must
@@ -15,6 +15,7 @@ import type { Category, City, Feedback, Product } from '@/types'
 
 export const CATALOG_TAG = 'catalog'
 export const FEEDBACK_TAG = 'feedback'
+export const SHOP_STATUS_TAG = 'shop-status'
 
 const cacheOptions = { revalidate: 300, tags: [CATALOG_TAG] }
 
@@ -165,6 +166,22 @@ export const getRelatedProducts = unstable_cache(
   },
   ['related-products'],
   cacheOptions
+)
+
+export const getShopStatus = unstable_cache(
+  async (): Promise<ShopSettings> => {
+    try {
+      const supabase = createPublicClient()
+      const { data, error } = await supabase.from('shop_settings').select('*').eq('id', true).single()
+      if (error) throw error
+      return data
+    } catch {
+      // Fail open — a settings-read glitch shouldn't hide the whole storefront.
+      return { id: true, is_open: true, closed_message: null, updated_at: new Date().toISOString() }
+    }
+  },
+  ['shop-status'],
+  { revalidate: 300, tags: [SHOP_STATUS_TAG] }
 )
 
 export const getApprovedFeedback = unstable_cache(
