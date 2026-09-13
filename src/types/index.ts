@@ -172,20 +172,6 @@ export interface ShopSettings {
   updated_at: string
 }
 
-export interface ShopReel {
-  id: string
-  title: string
-  caption: string | null
-  video_url: string
-  poster_url: string | null
-  video_path: string
-  poster_path: string | null
-  display_order: number
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
-
 export interface Feedback {
   id: string
   user_id: string

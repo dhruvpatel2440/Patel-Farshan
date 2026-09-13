@@ -5,14 +5,7 @@ import { OrnamentalDivider } from '@/components/shared/OrnamentalDivider'
 import { ProductCard } from '@/components/product/ProductCard'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { TestimonialMarquee } from '@/components/shared/TestimonialMarquee'
-import { ShopReels } from '@/components/shared/ShopReels'
-import {
-  getActiveCities,
-  getActiveReels,
-  getApprovedFeedback,
-  getCategories,
-  getFeaturedProducts,
-} from '@/lib/data'
+import { getActiveCities, getApprovedFeedback, getCategories, getFeaturedProducts } from '@/lib/data'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,12 +26,11 @@ const STEPS = [
 ]
 
 export default async function LandingPage() {
-  const [categories, featured, cities, testimonials, reels] = await Promise.all([
+  const [categories, featured, cities, testimonials] = await Promise.all([
     getCategories(),
     getFeaturedProducts(8),
     getActiveCities(),
     getApprovedFeedback(),
-    getActiveReels(),
   ])
 
   return (
@@ -231,11 +223,6 @@ export default async function LandingPage() {
           </p>
         </div>
       </section>
-
-      {/* ---------------------------------------------------------- */}
-      {/* SHOP REELS                                                 */}
-      {/* ---------------------------------------------------------- */}
-      <ShopReels items={reels} />
 
       {/* ---------------------------------------------------------- */}
       {/* HOW IT WORKS                                               */}

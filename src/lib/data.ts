@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { createPublicClient } from '@/lib/supabase/publicClient'
-import type { Category, City, Feedback, Product, ShopReel, ShopSettings } from '@/types'
+import type { Category, City, Feedback, Product, ShopSettings } from '@/types'
 
 /**
  * All fetchers fail soft (return []) instead of throwing — the site must
@@ -16,7 +16,6 @@ import type { Category, City, Feedback, Product, ShopReel, ShopSettings } from '
 export const CATALOG_TAG = 'catalog'
 export const FEEDBACK_TAG = 'feedback'
 export const SHOP_STATUS_TAG = 'shop-status'
-export const REELS_TAG = 'reels'
 
 const cacheOptions = { revalidate: 300, tags: [CATALOG_TAG] }
 
@@ -183,26 +182,6 @@ export const getShopStatus = unstable_cache(
   },
   ['shop-status'],
   { revalidate: 300, tags: [SHOP_STATUS_TAG] }
-)
-
-export const getActiveReels = unstable_cache(
-  async (limit = 12): Promise<ShopReel[]> => {
-    try {
-      const supabase = createPublicClient()
-      const { data, error } = await supabase
-        .from('shop_reels')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true })
-        .limit(limit)
-      if (error) throw error
-      return data ?? []
-    } catch {
-      return []
-    }
-  },
-  ['active-reels'],
-  { revalidate: 300, tags: [REELS_TAG] }
 )
 
 export const getApprovedFeedback = unstable_cache(

@@ -3,8 +3,7 @@ import path from 'path'
 
 /**
  * Supabase is the only cross-origin the app talks to: the REST/auth/realtime
- * API (connect-src) and public storage for product images and shop reels
- * (img-src, media-src). The
+ * API (connect-src) and public storage for product images (img-src). The
  * project URL is baked in at build time from NEXT_PUBLIC_SUPABASE_URL; the
  * wildcard covers storage on any Supabase host.
  */
@@ -28,9 +27,6 @@ const csp = [
   // Tailwind and the UI libraries emit inline style attributes.
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: https://*.supabase.co ${supabaseUrl}`,
-  // Shop reels stream from the same public storage as the images. blob: is
-  // for the admin uploader's local preview of a file not yet uploaded.
-  `media-src 'self' blob: https://*.supabase.co ${supabaseUrl}`,
   "font-src 'self' data:",
   `connect-src 'self' ${supabaseUrl} ${supabaseWs}`,
   "frame-ancestors 'none'",
