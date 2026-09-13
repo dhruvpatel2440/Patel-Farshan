@@ -8,7 +8,7 @@ const phoneRegex = /^[6-9]\d{9}$/
  * already; importing one constant is what stops the weakest of them from
  * quietly becoming the real policy.
  */
-export const PASSWORD_MIN_LENGTH = 8
+export const PASSWORD_MIN_LENGTH = 4
 export const PASSWORD_MIN_MESSAGE = `Password must be at least ${PASSWORD_MIN_LENGTH} characters`
 
 export const registerSchema = z

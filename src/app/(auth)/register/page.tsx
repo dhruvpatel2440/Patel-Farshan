@@ -8,19 +8,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Eye, EyeOff, AlertTriangle, Loader2, MailCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { PASSWORD_MIN_LENGTH, registerSchema, type RegisterInput } from '@/lib/validations'
-import { cn } from '@/lib/utils'
-
-function passwordScore(password: string) {
-  let score = 0
-  if (password.length >= PASSWORD_MIN_LENGTH) score++
-  if (password.length >= 10) score++
-  if (/[A-Z]/.test(password) && /[0-9]/.test(password)) score++
-  if (/[^A-Za-z0-9]/.test(password)) score++
-  return Math.min(score, 4)
-}
-
-const STRENGTH_COLORS = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500']
+import { registerSchema, type RegisterInput } from '@/lib/validations'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -50,15 +38,11 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
     defaultValues: { name: '', phone: '', email: '', password: '', confirmPassword: '' },
   })
-
-  const password = watch('password') || ''
-  const strength = passwordScore(password)
 
   async function onSubmit(values: RegisterInput) {
     setServerError(null)
@@ -280,19 +264,6 @@ export default function RegisterPage() {
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {password.length > 0 && (
-              <div className="mt-2 flex gap-1">
-                {[0, 1, 2, 3].map((i) => (
-                  <span
-                    key={i}
-                    className={cn(
-                      'h-1 flex-1 rounded-full bg-stone-200',
-                      i < strength && STRENGTH_COLORS[strength - 1]
-                    )}
-                  />
-                ))}
-              </div>
-            )}
             {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
           </div>
 
