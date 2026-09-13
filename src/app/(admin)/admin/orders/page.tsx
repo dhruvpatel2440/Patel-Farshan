@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { format } from 'date-fns'
-import { CalendarClock, ChevronDown, Phone, Printer } from 'lucide-react'
+import { CalendarClock, ChevronDown, Loader2, Phone, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -42,6 +42,8 @@ export default function AdminOrdersPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null)
   const [cancelReason, setCancelReason] = useState('')
+  // Which order has an action in flight, so its buttons can show it.
+  const [busyId, setBusyId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const pageSize = 20
 
@@ -88,43 +90,79 @@ export default function AdminOrdersPage() {
 
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
 
-  async function handleVerifyPayment(order: Order) {
-    const res = await fetch(`/api/admin/orders/${order.id}/verify-payment`, { method: 'PATCH' })
-    if (res.ok) {
-      toast.success('Payment verified.')
-      loadOrders()
-    } else {
-      toast.error('Could not verify payment.')
+  /**
+   * Every one of these actions is a round trip that also writes an audit entry,
+   * and the status change can send an email on top — so the tap used to sit
+   * there looking dead for a couple of seconds on a phone, and a second tap
+   * would fire the change twice. The row is marked busy while it runs, and the
+   * result is applied to the order in place: the badge flips the moment the
+   * server confirms, instead of after re-reading every order and profile.
+   */
+  async function runOrderAction(
+    order: Order,
+    send: () => Promise<Response>,
+    patch: Partial<Order>,
+    successMessage: string,
+    fallbackError: string
+  ): Promise<boolean> {
+    if (busyId) return false
+    setBusyId(order.id)
+    try {
+      const res = await send()
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(data.error || fallbackError)
+        return false
+      }
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, ...patch } : o)))
+      toast.success(successMessage)
+      return true
+    } catch {
+      toast.error('Could not reach the server. Please try again.')
+      return false
+    } finally {
+      setBusyId(null)
     }
   }
 
-  async function handleRejectPayment(order: Order) {
-    const res = await fetch(`/api/admin/orders/${order.id}/reject-payment`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
-    if (res.ok) {
-      toast.success('Payment rejected.')
-      loadOrders()
-    } else {
-      toast.error('Could not reject payment.')
-    }
+  function handleVerifyPayment(order: Order) {
+    return runOrderAction(
+      order,
+      () => fetch(`/api/admin/orders/${order.id}/verify-payment`, { method: 'PATCH' }),
+      { payment_status: 'paid', order_status: 'confirmed' },
+      'Payment verified.',
+      'Could not verify payment.'
+    )
   }
 
-  async function handleStatusChange(order: Order, status: string) {
-    const res = await fetch(`/api/admin/orders/${order.id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    })
-    const data = await res.json()
-    if (res.ok) {
-      toast.success('Order status updated.')
-      loadOrders()
-    } else {
-      toast.error(data.error || 'Could not update status.')
-    }
+  function handleRejectPayment(order: Order) {
+    return runOrderAction(
+      order,
+      () =>
+        fetch(`/api/admin/orders/${order.id}/reject-payment`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        }),
+      { payment_status: 'failed' },
+      'Payment rejected.',
+      'Could not reject payment.'
+    )
+  }
+
+  function handleStatusChange(order: Order, status: OrderStatus) {
+    return runOrderAction(
+      order,
+      () =>
+        fetch(`/api/admin/orders/${order.id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        }),
+      { order_status: status },
+      'Order status updated.',
+      'Could not update status.'
+    )
   }
 
   async function handleCancel() {
@@ -132,18 +170,21 @@ export default function AdminOrdersPage() {
       toast.error('Please enter a cancellation reason.')
       return
     }
-    const res = await fetch(`/api/admin/orders/${cancelTarget.id}/cancel`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: cancelReason }),
-    })
-    if (res.ok) {
-      toast.success('Order cancelled.')
+    const ok = await runOrderAction(
+      cancelTarget,
+      () =>
+        fetch(`/api/admin/orders/${cancelTarget.id}/cancel`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: cancelReason }),
+        }),
+      { order_status: 'cancelled' },
+      'Order cancelled.',
+      'Could not cancel order.'
+    )
+    if (ok) {
       setCancelTarget(null)
       setCancelReason('')
-      loadOrders()
-    } else {
-      toast.error('Could not cancel order.')
     }
   }
 
@@ -293,14 +334,18 @@ export default function AdminOrdersPage() {
                           <div className="mt-2 flex gap-2">
                             <button
                               onClick={() => handleVerifyPayment(order)}
-                              className="flex-1 rounded-lg bg-green-600 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+                              disabled={busyId === order.id}
+                              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
                             >
+                              {busyId === order.id && <Loader2 className="h-3 w-3 animate-spin" />}
                               ✓ Verify Payment
                             </button>
                             <button
                               onClick={() => handleRejectPayment(order)}
-                              className="flex-1 rounded-lg bg-red-600 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                              disabled={busyId === order.id}
+                              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-red-600 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60"
                             >
+                              {busyId === order.id && <Loader2 className="h-3 w-3 animate-spin" />}
                               ✕ Reject
                             </button>
                           </div>
@@ -312,15 +357,20 @@ export default function AdminOrdersPage() {
                         {nextStatus && order.order_status !== 'cancelled' && order.order_status !== 'delivered' && (
                           <button
                             onClick={() => handleStatusChange(order, nextStatus)}
-                            className="btn-primary !py-1.5 text-sm"
+                            disabled={busyId === order.id}
+                            className="btn-primary flex items-center gap-2 !py-1.5 text-sm disabled:opacity-60"
                           >
-                            Mark as {nextStatus.replace(/_/g, ' ')}
+                            {busyId === order.id && <Loader2 className="h-4 w-4 animate-spin" />}
+                            {busyId === order.id
+                              ? 'Updating…'
+                              : `Mark as ${nextStatus.replace(/_/g, ' ')}`}
                           </button>
                         )}
                         {order.order_status !== 'delivered' && order.order_status !== 'cancelled' && (
                           <button
                             onClick={() => setCancelTarget(order)}
-                            className="rounded-lg border border-red-500 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
+                            disabled={busyId === order.id}
+                            className="rounded-lg border border-red-500 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
                           >
                             Cancel Order
                           </button>
@@ -385,9 +435,11 @@ export default function AdminOrdersPage() {
             <DialogClose nativeButton={false} render={<button className="btn-outline">Back</button>} />
             <button
               onClick={handleCancel}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              disabled={busyId === cancelTarget?.id}
+              className="flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
             >
-              Confirm Cancel
+              {busyId === cancelTarget?.id && <Loader2 className="h-4 w-4 animate-spin" />}
+              {busyId === cancelTarget?.id ? 'Cancelling…' : 'Confirm Cancel'}
             </button>
           </DialogFooter>
         </DialogContent>
