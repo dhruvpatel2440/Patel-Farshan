@@ -1,60 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { format } from 'date-fns'
-import { ChevronDown, Loader2, MessageSquareHeart, Sparkles, Star } from 'lucide-react'
+import { useState } from 'react'
+import { Loader2, MessageSquareHeart, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { StarRatingInput } from '@/components/shared/StarRatingInput'
-import { cn } from '@/lib/utils'
-import type { Feedback } from '@/types'
-
-/** One line per past review — a compact summary, not the full card, so a
- * reviewer with many entries doesn't turn this into a scroll-forever list. */
-function FeedbackHistoryRow({ item }: { item: Feedback }) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg bg-cream px-3 py-2">
-      <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold text-gold-dark">
-        <Star className="h-3 w-3 fill-gold text-gold" /> {item.rating}
-      </span>
-      <p className="min-w-0 flex-1 truncate text-xs text-stone-600">
-        {item.message || <span className="italic text-stone-400">No comment</span>}
-      </p>
-      <span
-        className={cn(
-          'h-1.5 w-1.5 shrink-0 rounded-full',
-          item.is_approved ? 'bg-green-500' : 'bg-amber-400'
-        )}
-        title={item.is_approved ? 'Published on our site' : 'Pending review'}
-        aria-label={item.is_approved ? 'Published on our site' : 'Pending review'}
-      />
-      <span className="shrink-0 text-[10px] text-stone-400">
-        {format(new Date(item.created_at), 'd MMM')}
-      </span>
-    </div>
-  )
-}
-
-// Collapsed by default; a heavy reviewer's 10 entries would otherwise push
-// the whole dashboard down a full screen before anyone reaches their orders.
-const COLLAPSED_COUNT = 3
 
 export function FeedbackForm() {
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [items, setItems] = useState<Feedback[]>([])
   const [rating, setRating] = useState(0)
   const [message, setMessage] = useState('')
-  const [expanded, setExpanded] = useState(false)
-
-  useEffect(() => {
-    fetch('/api/feedback')
-      .then((r) => r.json())
-      .then((data) => {
-        setItems(data.feedback ?? [])
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [])
 
   async function handleSubmit() {
     if (rating === 0) {
@@ -76,7 +30,6 @@ export function FeedbackForm() {
       // Customers can leave more than one review, so a successful submit
       // clears the compose box for the next one rather than "locking in" a
       // single answer the way the old one-review-per-user design did.
-      setItems((prev) => [data.feedback, ...prev])
       setRating(0)
       setMessage('')
       toast.success('Thanks for your feedback!')
@@ -86,8 +39,6 @@ export function FeedbackForm() {
       setSaving(false)
     }
   }
-
-  if (loading) return null
 
   return (
     // A plain white bordered box here read as just another list item and got
@@ -133,48 +84,6 @@ export function FeedbackForm() {
           {saving ? 'Saving…' : 'Submit Feedback'}
         </button>
       </div>
-
-      {items.length > 0 && (
-        <div className="relative mt-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gold/80">
-              Your Feedback History
-            </p>
-            <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[11px] font-bold text-gold">
-              {items.length}
-            </span>
-          </div>
-
-          {/* Collapsed: just the most recent few, one compact line each.
-              Expanded: the rest live in a capped, scrollable panel instead
-              of stretching the page — a reviewer with 10 entries stays
-              contained to one card's worth of height either way. */}
-          <div className="mt-2 space-y-1.5">
-            {items.slice(0, COLLAPSED_COUNT).map((item) => (
-              <FeedbackHistoryRow key={item.id} item={item} />
-            ))}
-          </div>
-
-          {items.length > COLLAPSED_COUNT && (
-            <>
-              {expanded && (
-                <div className="scrollbar-thin mt-1.5 max-h-48 space-y-1.5 overflow-y-auto pr-1">
-                  {items.slice(COLLAPSED_COUNT).map((item) => (
-                    <FeedbackHistoryRow key={item.id} item={item} />
-                  ))}
-                </div>
-              )}
-              <button
-                onClick={() => setExpanded((v) => !v)}
-                className="mt-2 flex w-full items-center justify-center gap-1 text-xs font-semibold text-gold hover:text-gold-dark"
-              >
-                {expanded ? 'Show less' : `Show ${items.length - COLLAPSED_COUNT} more`}
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-              </button>
-            </>
-          )}
-        </div>
-      )}
     </div>
   )
 }
