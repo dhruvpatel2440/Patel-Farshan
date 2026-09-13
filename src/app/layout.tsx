@@ -3,6 +3,7 @@ import { Inter, Playfair_Display, Noto_Sans_Gujarati } from 'next/font/google'
 import localFont from 'next/font/local'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
+import { InstallPrompt } from '@/components/pwa/InstallPrompt'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 const playfair = Playfair_Display({
@@ -30,7 +31,18 @@ export const metadata: Metadata = {
   },
   description:
     'Authentic Gujarati farsan, delivered to your door. Fresh daily since 1985.',
-  icons: { icon: '/favicon.ico' },
+  icons: {
+    icon: '/favicon.ico',
+    // iOS ignores the manifest's icons and reads this one for the home screen.
+    apple: '/icons/apple-touch-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'Patel Farsan',
+    // Cream bar, so the status area matches the page rather than sitting
+    // black above it once the app is opened from the home screen.
+    statusBarStyle: 'default',
+  },
 }
 
 export const viewport: Viewport = {
@@ -44,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className={`${inter.variable} ${playfair.variable} ${gujarati.variable} ${mogra.variable} font-sans bg-cream antialiased`}
       >
         {children}
+        <InstallPrompt />
         <Toaster richColors position="top-right" />
       </body>
     </html>
