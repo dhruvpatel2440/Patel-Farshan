@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Package, FolderTree, ClipboardList, Building2, Users, MessageSquareHeart, Mail, ScrollText, Store, Power, LogOut, Menu } from 'lucide-react'
+import { LayoutDashboard, Package, FolderTree, ClipboardList, Building2, Users, MessageSquareHeart, Clapperboard, Mail, ScrollText, Store, Power, LogOut, Menu } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { OrnamentalDivider } from '@/components/shared/OrnamentalDivider'
 import { createClient } from '@/lib/supabase/client'
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: '/admin/orders', label: 'Orders', icon: ClipboardList },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/feedback', label: 'Feedback', icon: MessageSquareHeart },
+  { href: '/admin/reels', label: 'Shop Reels', icon: Clapperboard },
   { href: '/admin/cities', label: 'Cities', icon: Building2 },
   { href: '/admin/emails', label: 'Email Logs', icon: Mail },
   { href: '/admin/audit', label: 'Audit Logs', icon: ScrollText },
