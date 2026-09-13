@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { OrnamentalDivider } from '@/components/shared/OrnamentalDivider'
+import { cn } from '@/lib/utils'
 import type { ShopReel } from '@/types'
 
 /**
@@ -26,9 +27,10 @@ export function ShopReels({ items }: { items: ShopReel[] }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const videoRefs = useRef(new Map<string, HTMLVideoElement>())
   const visibleIds = useRef(new Set<string>())
+  const [activeIndex, setActiveIndex] = useState(0)
   const [active, setActive] = useState<ShopReel | null>(null)
 
-  /** Cards play only while scrolled into view — never all of them at once. */
+  /** Only the centred reel plays — never the half-visible ones beside it. */
   const syncPlayback = useCallback((paused = false) => {
     videoRefs.current.forEach((video, id) => {
       if (!paused && visibleIds.current.has(id)) {
@@ -43,17 +45,23 @@ export function ShopReels({ items }: { items: ShopReel[] }) {
 
   useEffect(() => {
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduceMotion) return
 
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          const id = (entry.target as HTMLElement).dataset.reelId
+          const el = entry.target as HTMLElement
+          const id = el.dataset.reelId
           if (!id) continue
-          if (entry.isIntersecting) visibleIds.current.add(id)
-          else visibleIds.current.delete(id)
+          if (entry.isIntersecting) {
+            visibleIds.current.add(id)
+            // The neighbours only ever peek past the edges, so whatever
+            // clears this threshold is the one sitting in the middle.
+            setActiveIndex(Number(el.dataset.reelIndex))
+          } else {
+            visibleIds.current.delete(id)
+          }
         }
-        syncPlayback()
+        if (!reduceMotion) syncPlayback()
       },
       { threshold: 0.6 }
     )
@@ -63,18 +71,17 @@ export function ShopReels({ items }: { items: ShopReel[] }) {
     return () => observer.disconnect()
   }, [items, syncPlayback])
 
-  // The dialog copy plays with sound; the muted cards behind it would keep
+  // The dialog copy plays with sound; the muted card behind it would keep
   // burning bandwidth for a strip nobody can see.
   useEffect(() => {
     syncPlayback(Boolean(active))
   }, [active, syncPlayback])
 
-  function scrollByCard(direction: 1 | -1) {
+  function scrollToIndex(index: number) {
     const track = trackRef.current
     if (!track) return
-    const card = track.querySelector('[data-reel-card]')
-    const step = card instanceof HTMLElement ? card.offsetWidth + 20 : track.clientWidth * 0.8
-    track.scrollBy({ left: step * direction, behavior: 'smooth' })
+    const card = track.querySelectorAll('[data-reel-card]')[index]
+    card?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }
 
   if (items.length === 0) return null
@@ -104,46 +111,52 @@ export function ShopReels({ items }: { items: ShopReel[] }) {
               <Sparkles className="h-4 w-4 text-gold" />
             </h2>
             <p className="mt-1 text-sm text-gold/90">
-              Fresh from our kitchen — tap any reel to watch with sound
+              Fresh from our kitchen — tap to watch with sound
             </p>
             <OrnamentalDivider size="sm" className="!mt-3 !mb-0" />
           </div>
 
           <div className="relative mt-6">
-            {/* Arrows are a desktop nicety; touch devices just swipe. */}
             {items.length > 1 && (
               <>
                 <button
                   type="button"
-                  onClick={() => scrollByCard(-1)}
-                  aria-label="Previous reels"
-                  className="absolute -left-3 top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-cream text-maroon shadow-md transition-colors hover:bg-gold md:flex"
+                  onClick={() => scrollToIndex(Math.max(activeIndex - 1, 0))}
+                  disabled={activeIndex === 0}
+                  aria-label="Previous reel"
+                  className="absolute left-0 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-cream text-maroon shadow-md transition-colors hover:bg-gold disabled:opacity-30 md:flex"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => scrollByCard(1)}
-                  aria-label="More reels"
-                  className="absolute -right-3 top-1/2 z-10 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-cream text-maroon shadow-md transition-colors hover:bg-gold md:flex"
+                  onClick={() => scrollToIndex(Math.min(activeIndex + 1, items.length - 1))}
+                  disabled={activeIndex === items.length - 1}
+                  aria-label="Next reel"
+                  className="absolute right-0 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-cream text-maroon shadow-md transition-colors hover:bg-gold disabled:opacity-30 md:flex"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
               </>
             )}
 
+            {/* One big reel at a time with its neighbours peeking past the
+                edges, so it reads as a swipeable stack rather than a row of
+                thumbnails. The negative margins let it run to the edge of the
+                maroon block; the side padding is what lets the first and last
+                reel still settle in the centre. */}
             <div
               ref={trackRef}
-              className="scrollbar-thin flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2"
+              className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-[11vw] pb-1 md:-mx-8 md:gap-6 md:px-[calc(50%_-_11rem)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-              {items.map((reel) => (
+              {items.map((reel, index) => (
                 <button
                   key={reel.id}
                   type="button"
                   data-reel-card
                   onClick={() => setActive(reel)}
                   aria-label={`Play reel: ${reel.title}`}
-                  className="group relative aspect-9/16 w-40 shrink-0 snap-center overflow-hidden rounded-2xl bg-maroon-dark ring-2 ring-gold/30 transition-transform hover:scale-[1.02] hover:ring-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold sm:w-44 md:w-48"
+                  className="group relative aspect-9/16 w-[78vw] max-w-[22rem] shrink-0 snap-center overflow-hidden rounded-2xl bg-maroon-dark ring-2 ring-gold/30 transition-shadow hover:ring-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold md:w-[22rem]"
                 >
                   <video
                     ref={(el) => {
@@ -151,6 +164,7 @@ export function ShopReels({ items }: { items: ShopReel[] }) {
                       else videoRefs.current.delete(reel.id)
                     }}
                     data-reel-id={reel.id}
+                    data-reel-index={index}
                     src={cardSource(reel)}
                     poster={reel.poster_url ?? undefined}
                     muted
@@ -171,17 +185,17 @@ export function ShopReels({ items }: { items: ShopReel[] }) {
                     className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
                     aria-hidden="true"
                   >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-cream/90 text-maroon">
-                      <Play className="h-5 w-5 fill-maroon" />
+                    <span className="flex h-14 w-14 items-center justify-center rounded-full bg-cream/90 text-maroon">
+                      <Play className="h-6 w-6 fill-maroon" />
                     </span>
                   </span>
 
-                  <span className="pointer-events-none absolute inset-x-0 bottom-0 p-3 text-left">
-                    <span className="line-clamp-2 block font-serif text-sm font-bold leading-tight text-cream">
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 p-4 text-left">
+                    <span className="line-clamp-2 block font-serif text-base font-bold leading-tight text-cream">
                       {reel.title}
                     </span>
                     {reel.caption && (
-                      <span className="mt-0.5 line-clamp-1 block text-[11px] text-cream/70">
+                      <span className="mt-0.5 line-clamp-1 block text-xs text-cream/70">
                         {reel.caption}
                       </span>
                     )}
@@ -189,6 +203,24 @@ export function ShopReels({ items }: { items: ShopReel[] }) {
                 </button>
               ))}
             </div>
+
+            {items.length > 1 && (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                {items.map((reel, index) => (
+                  <button
+                    key={reel.id}
+                    type="button"
+                    onClick={() => scrollToIndex(index)}
+                    aria-label={`Go to reel ${index + 1}: ${reel.title}`}
+                    aria-current={index === activeIndex}
+                    className={cn(
+                      'h-2 rounded-full transition-all',
+                      index === activeIndex ? 'w-6 bg-gold' : 'w-2 bg-cream/30 hover:bg-cream/50'
+                    )}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -209,9 +241,7 @@ export function ShopReels({ items }: { items: ShopReel[] }) {
             {active?.caption ? (
               <DialogDescription className="text-cream/70">{active.caption}</DialogDescription>
             ) : (
-              <DialogDescription className="sr-only">
-                Video from Patel Farsan
-              </DialogDescription>
+              <DialogDescription className="sr-only">Video from Patel Farsan</DialogDescription>
             )}
           </DialogHeader>
           {active && (

@@ -45,6 +45,12 @@ create policy "Admin full access reels"
 -- ------------------------------------------------------------
 -- Storage bucket
 -- ------------------------------------------------------------
+-- NOTE: hosted Supabase can reject the statements below when the SQL editor
+-- isn't the owner of the storage tables — and it fails quietly enough that
+-- the table above still commits, leaving uploads to die with "The related
+-- resource does not exist" (which means: no such bucket). If that happens,
+-- create it in Dashboard -> Storage instead, named `shop-reels`, public, with
+-- the same 50MB limit and MIME list spelled out here.
 -- Videos are too large to pass through a serverless route body, so the
 -- browser uploads them straight to storage with a short-lived signed URL
 -- minted by /api/admin/reels/upload-url. That means the client, not our
