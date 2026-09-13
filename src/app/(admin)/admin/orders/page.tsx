@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { ChevronDown, Phone, Printer } from 'lucide-react'
+import { format } from 'date-fns'
+import { CalendarClock, ChevronDown, Phone, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -218,6 +219,11 @@ export default function AdminOrdersPage() {
                   <span className="text-sm text-stone-600">
                     {order.profile?.name} · {order.profile?.phone}
                   </span>
+                  {/* Short form here, full date and time in the expanded panel —
+                      enough to scan the list by day without opening each card. */}
+                  <span className="text-xs text-stone-400">
+                    {format(new Date(order.placed_at), 'd MMM, h:mm a')}
+                  </span>
                   <span className="font-semibold text-maroon">₹{order.total}</span>
                   <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium">
                     {order.payment_mode.toUpperCase()}
@@ -229,7 +235,13 @@ export default function AdminOrdersPage() {
                 {expanded && (
                   <div className="grid grid-cols-1 gap-6 border-t border-stone-100 p-4 md:grid-cols-2">
                     <div>
-                      <p className="text-xs font-semibold uppercase text-stone-400">Customer</p>
+                      <p className="text-xs font-semibold uppercase text-stone-400">Placed On</p>
+                      <p className="flex items-center gap-1.5 text-sm text-stone-600">
+                        <CalendarClock className="h-3.5 w-3.5 text-stone-400" />
+                        {format(new Date(order.placed_at), 'd MMM yyyy, h:mm a')}
+                      </p>
+
+                      <p className="mt-3 text-xs font-semibold uppercase text-stone-400">Customer</p>
                       <p className="text-sm">{order.profile?.name}</p>
                       <a href={`tel:${order.profile?.phone}`} className="flex items-center gap-1 text-sm text-maroon">
                         <Phone className="h-3 w-3" /> {order.profile?.phone}
