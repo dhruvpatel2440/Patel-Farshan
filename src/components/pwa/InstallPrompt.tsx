@@ -175,6 +175,17 @@ export function InstallPrompt() {
     }
   }, [onAdmin])
 
+  // With a backdrop up, Escape has to close it — on desktop there is nothing
+  // else to reach for.
+  useEffect(() => {
+    if (!visible) return
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') hide(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [visible, hide])
+
   async function handleInstall() {
     if (!installEvent) return
     await installEvent.prompt()
@@ -187,75 +198,100 @@ export function InstallPrompt() {
   if (!visible || onAdmin) return null
 
   return (
-    <div
-      role="dialog"
-      aria-label="Install Patel Farsan"
-      className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 rounded-2xl border-2 border-gold/40 bg-cream p-4 shadow-2xl md:inset-x-auto md:right-6 md:bottom-6 md:w-96"
-    >
-      <button
+    <>
+      {/* A cream card on a cream page read as part of the layout and got
+          scrolled straight past. Dimming everything behind it is what makes it
+          register as a popup at all; tapping the dimmed area is the same as
+          "Not now". */}
+      <div
         onClick={() => hide(false)}
-        aria-label="Close"
-        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-stone-400 hover:bg-stone-200 hover:text-maroon"
+        aria-hidden="true"
+        // Above the bottom nav (z-50), which would otherwise sit lit up on
+        // top of the dimmed page.
+        className="fixed inset-0 z-60 bg-black/60 backdrop-blur-[2px]"
+      />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Install Patel Farsan"
+        className="animate-fade-up fixed inset-x-3 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-70 rounded-2xl border-2 border-gold bg-gradient-to-br from-maroon to-maroon-light p-5 shadow-[0_0_40px_rgba(0,0,0,0.5)] ring-4 ring-gold/20 md:inset-x-auto md:bottom-6 md:right-6 md:w-96"
       >
-        <X className="h-4 w-4" />
-      </button>
+        <button
+          onClick={() => hide(false)}
+          aria-label="Close"
+          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-cream/60 hover:bg-cream/10 hover:text-cream"
+        >
+          <X className="h-4 w-4" />
+        </button>
 
-      <div className="flex items-center gap-3">
-        <Image
-          src="/icons/icon-192.png"
-          alt=""
-          width={56}
-          height={56}
-          className="h-14 w-14 shrink-0 rounded-xl border border-gold/30"
-        />
-        <div className="min-w-0 pr-6">
-          <p className="font-gujarati text-base font-bold leading-tight text-maroon">
-            પટેલ ફરસાણ એપ ઉમેરો
-          </p>
-          <p className="font-serif text-sm font-semibold text-maroon/70">
-            Add Patel Farsan to your phone
-          </p>
+        <div className="flex items-center gap-3">
+          {/* Cream tile behind the mark: it was drawn to sit on cream, not on
+              maroon, and its cut-out edge disappears against the gradient. */}
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-cream p-1 shadow-md ring-2 ring-gold/40">
+            <Image
+              src="/icons/icon-192.png"
+              alt=""
+              width={64}
+              height={64}
+              className="h-full w-full rounded-xl object-contain"
+            />
+          </span>
+          <div className="min-w-0 pr-6">
+            <p className="font-gujarati text-lg font-bold leading-tight text-cream">
+              પટેલ ફરસાણ એપ ઉમેરો
+            </p>
+            <p className="font-serif text-sm font-semibold text-gold">
+              Add Patel Farsan to your phone
+            </p>
+          </div>
         </div>
-      </div>
 
-      {showIosHint ? (
-        <>
-          <p className="mt-3 text-sm leading-relaxed text-stone-600">
-            Tap the <Share className="mx-0.5 inline h-4 w-4 text-maroon" aria-label="Share" />{' '}
-            button at the bottom of Safari, then choose{' '}
-            <span className="font-semibold text-maroon">Add to Home Screen</span>.
-          </p>
-          {/* iOS tells a website nothing about what the customer did with that
-              menu, so this button is the only way to stop asking them. */}
-          <button onClick={() => hide(true)} className="btn-primary mt-3 w-full justify-center">
-            I&apos;ve added it
-          </button>
-          <button
-            onClick={() => hide(false)}
-            className="mt-1 w-full py-1.5 text-sm font-semibold text-stone-500 hover:text-maroon"
-          >
-            Maybe later
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="mt-3 text-sm leading-relaxed text-stone-600">
-            Order in one tap next time — it opens like an app, and takes no space from the
-            Play Store.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button onClick={handleInstall} className="btn-primary flex-1 justify-center">
-              Install
+        {showIosHint ? (
+          <>
+            <p className="mt-3 text-sm leading-relaxed text-cream/90">
+              Tap the <Share className="mx-0.5 inline h-4 w-4 text-gold" aria-label="Share" />{' '}
+              button at the bottom of Safari, then choose{' '}
+              <span className="font-bold text-gold">Add to Home Screen</span>.
+            </p>
+            {/* iOS tells a website nothing about what the customer did with
+                that menu, so this button is the only way to stop asking. */}
+            <button
+              onClick={() => hide(true)}
+              className="mt-4 w-full rounded-lg bg-gold py-3 text-base font-bold text-maroon shadow-md transition-colors hover:bg-gold-light"
+            >
+              I&apos;ve added it
             </button>
             <button
               onClick={() => hide(false)}
-              className="rounded-lg px-4 py-2 text-sm font-semibold text-stone-500 hover:text-maroon"
+              className="mt-1 w-full py-2 text-sm font-semibold text-cream/70 hover:text-cream"
             >
-              Not now
+              Maybe later
             </button>
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        ) : (
+          <>
+            <p className="mt-3 text-sm leading-relaxed text-cream/90">
+              Order in one tap next time — it opens like an app, and takes no space from the
+              Play Store.
+            </p>
+            <div className="mt-4 flex items-center gap-2">
+              <button
+                onClick={handleInstall}
+                className="flex-1 rounded-lg bg-gold py-3 text-base font-bold text-maroon shadow-md transition-colors hover:bg-gold-light"
+              >
+                Install
+              </button>
+              <button
+                onClick={() => hide(false)}
+                className="rounded-lg px-4 py-3 text-sm font-semibold text-cream/70 hover:text-cream"
+              >
+                Not now
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
   )
 }
