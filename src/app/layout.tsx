@@ -52,6 +52,18 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+      <head>
+        {/* Chrome can fire beforeinstallprompt before React has hydrated, and
+            the event is only offered once. Catching it here and parking it on
+            window means the install card still appears on a first visit
+            instead of silently missing its one chance. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__pfInstallEvent=e;});",
+          }}
+        />
+      </head>
       <body
         className={`${inter.variable} ${playfair.variable} ${gujarati.variable} ${mogra.variable} font-sans bg-cream antialiased`}
       >

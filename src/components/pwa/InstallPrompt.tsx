@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Share, X } from 'lucide-react'
@@ -11,17 +11,48 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-const DISMISSED_KEY = 'pf-install-dismissed-at'
-/** Asked once, then left alone for a month. */
-const SNOOZE_MS = 30 * 24 * 60 * 60 * 1000
-/** Long enough that the banner never lands mid-tap on a page just opened. */
-const APPEAR_DELAY_MS = 4000
+/** Chrome-only, and likewise missing from the DOM lib. */
+type NavigatorWithRelatedApps = Navigator & {
+  getInstalledRelatedApps?: () => Promise<Array<{ id?: string; platform?: string; url?: string }>>
+  standalone?: boolean
+}
 
+/** Permanent: once installed, never ask again on this device. */
+const INSTALLED_KEY = 'pf-pwa-installed'
+/** Per visit: a dismissal quietens this visit only, not the next one. */
+const DISMISSED_KEY = 'pf-install-dismissed'
+
+function markInstalled() {
+  try {
+    window.localStorage.setItem(INSTALLED_KEY, '1')
+  } catch {
+    // Private mode with storage blocked — the prompt may reappear, which is
+    // the harmless end of getting this wrong.
+  }
+}
+
+function alreadyInstalled() {
+  try {
+    return window.localStorage.getItem(INSTALLED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function dismissedThisVisit() {
+  try {
+    return window.sessionStorage.getItem(DISMISSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** True only while running as the installed app, not while browsing the site. */
 function isStandalone() {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     // iOS Safari's own flag, which predates display-mode.
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+    (window.navigator as NavigatorWithRelatedApps).standalone === true
   )
 }
 
@@ -32,12 +63,21 @@ function isIos() {
 }
 
 /**
- * Offers to put Patel Farsan on the customer's home screen, and registers the
- * service worker that makes the site installable at all.
+ * Asks the customer to keep Patel Farsan on their home screen, and registers
+ * the service worker that makes the site installable at all.
  *
- * Chrome hands us an install event we can trigger directly; iOS has no such
- * API, so there the banner explains the Share -> Add to Home Screen steps
- * instead of pretending a button will do it.
+ * Shown on the first visit and on later visits if it was waved away, but never
+ * again once the app is installed. Installation is read from three signals,
+ * because no single one is enough:
+ *
+ *  1. `appinstalled` / an accepted prompt — definitive, and recorded for good.
+ *  2. Running in standalone display mode — they are *in* the installed app.
+ *  3. `getInstalledRelatedApps()` — the only one that can tell, from an
+ *     ordinary browser tab, that this PWA is installed from an earlier visit.
+ *
+ * Chrome also simply withholds `beforeinstallprompt` when the app is already
+ * installed, so the Android banner is self-suppressing on top of all this.
+ * iOS exposes nothing at all, which is why its card offers "I've added it".
  */
 export function InstallPrompt() {
   const pathname = usePathname()
@@ -47,6 +87,19 @@ export function InstallPrompt() {
 
   // The shop owner does not need to be nagged to install their own admin.
   const onAdmin = pathname?.startsWith('/admin') ?? false
+
+  const hide = useCallback((permanent: boolean) => {
+    setVisible(false)
+    if (permanent) {
+      markInstalled()
+      return
+    }
+    try {
+      window.sessionStorage.setItem(DISMISSED_KEY, '1')
+    } catch {
+      // Nothing to do; worst case it reappears on the next page.
+    }
+  }, [])
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') return
@@ -58,52 +111,77 @@ export function InstallPrompt() {
   }, [])
 
   useEffect(() => {
-    if (onAdmin || isStandalone()) return
+    if (onAdmin) return
 
-    const dismissedAt = Number(window.localStorage.getItem(DISMISSED_KEY) ?? 0)
-    if (Date.now() - dismissedAt < SNOOZE_MS) return
+    // Opened as the installed app: record it, so a later visit through the
+    // browser knows too.
+    if (isStandalone()) {
+      markInstalled()
+      return
+    }
+    if (alreadyInstalled() || dismissedThisVisit()) return
 
-    let timer: ReturnType<typeof setTimeout>
+    let cancelled = false
 
     function onBeforeInstallPrompt(event: Event) {
       // Stops Chrome's own mini-infobar so there is only one ask on screen.
       event.preventDefault()
+      if (cancelled) return
       setInstallEvent(event as BeforeInstallPromptEvent)
-      timer = setTimeout(() => setVisible(true), APPEAR_DELAY_MS)
+      setVisible(true)
     }
 
     function onInstalled() {
+      markInstalled()
       setVisible(false)
       setInstallEvent(null)
+    }
+
+    // Captured before React hydrated, if Chrome fired it that early.
+    const pending = (window as Window & { __pfInstallEvent?: BeforeInstallPromptEvent })
+      .__pfInstallEvent
+    if (pending) {
+      setInstallEvent(pending)
+      setVisible(true)
     }
 
     window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
     window.addEventListener('appinstalled', onInstalled)
 
+    // Chrome can confirm an install from a previous visit; everyone else
+    // falls back to the signals above.
+    const nav = window.navigator as NavigatorWithRelatedApps
+    if (nav.getInstalledRelatedApps) {
+      nav
+        .getInstalledRelatedApps()
+        .then((apps) => {
+          if (apps.length === 0) return
+          cancelled = true
+          markInstalled()
+          setVisible(false)
+        })
+        .catch(() => {})
+    }
+
     if (isIos()) {
       setShowIosHint(true)
-      timer = setTimeout(() => setVisible(true), APPEAR_DELAY_MS)
+      setVisible(true)
     }
 
     return () => {
+      cancelled = true
       window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
       window.removeEventListener('appinstalled', onInstalled)
-      clearTimeout(timer)
     }
   }, [onAdmin])
-
-  function dismiss() {
-    window.localStorage.setItem(DISMISSED_KEY, String(Date.now()))
-    setVisible(false)
-  }
 
   async function handleInstall() {
     if (!installEvent) return
     await installEvent.prompt()
-    await installEvent.userChoice
+    const { outcome } = await installEvent.userChoice
     // Chrome allows one prompt per event, so it is spent either way.
     setInstallEvent(null)
-    setVisible(false)
+    hide(outcome === 'accepted')
   }
 
   if (!visible || onAdmin) return null
@@ -115,7 +193,7 @@ export function InstallPrompt() {
       className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 rounded-2xl border-2 border-gold/40 bg-cream p-4 shadow-2xl md:inset-x-auto md:right-6 md:bottom-6 md:w-96"
     >
       <button
-        onClick={dismiss}
+        onClick={() => hide(false)}
         aria-label="Close"
         className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-stone-400 hover:bg-stone-200 hover:text-maroon"
       >
@@ -147,8 +225,16 @@ export function InstallPrompt() {
             button at the bottom of Safari, then choose{' '}
             <span className="font-semibold text-maroon">Add to Home Screen</span>.
           </p>
-          <button onClick={dismiss} className="btn-primary mt-3 w-full justify-center">
-            Got it
+          {/* iOS tells a website nothing about what the customer did with that
+              menu, so this button is the only way to stop asking them. */}
+          <button onClick={() => hide(true)} className="btn-primary mt-3 w-full justify-center">
+            I&apos;ve added it
+          </button>
+          <button
+            onClick={() => hide(false)}
+            className="mt-1 w-full py-1.5 text-sm font-semibold text-stone-500 hover:text-maroon"
+          >
+            Maybe later
           </button>
         </>
       ) : (
@@ -162,7 +248,7 @@ export function InstallPrompt() {
               Install
             </button>
             <button
-              onClick={dismiss}
+              onClick={() => hide(false)}
               className="rounded-lg px-4 py-2 text-sm font-semibold text-stone-500 hover:text-maroon"
             >
               Not now

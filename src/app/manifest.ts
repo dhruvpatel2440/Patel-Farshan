@@ -8,6 +8,8 @@ import type { MetadataRoute } from 'next'
  * The icons under /public/icons are generated from public/images/logo-mark.png
  * flattened onto cream (#fdf1dc), the background that mark was drawn for.
  */
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Patel Farsan — Since 1985',
@@ -33,5 +35,13 @@ export default function manifest(): MetadataRoute.Manifest {
       { name: 'My Orders', short_name: 'Orders', url: '/orders' },
       { name: 'Track Order', short_name: 'Track', url: '/track' },
     ],
+    // Points the app at itself so navigator.getInstalledRelatedApps() can
+    // report "this PWA is already installed" while the customer is browsing in
+    // a normal tab. Without this entry that check returns nothing, and an
+    // installed customer would keep being asked to install.
+    // prefer_related_applications stays false: we want *this* app installed,
+    // not a store listing.
+    related_applications: [{ platform: 'webapp', url: `${siteUrl}/manifest.webmanifest` }],
+    prefer_related_applications: false,
   }
 }
