@@ -10,6 +10,7 @@ import { OrderSuccessCard } from '@/components/order/OrderSuccessCard'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { UPI_ID } from '@/lib/constants'
+import { orderWhatsAppUrl } from '@/lib/whatsapp'
 import type { Order } from '@/types'
 
 const WINDOW_SECONDS = 15 * 60
@@ -48,7 +49,7 @@ export default function UpiPaymentPage({ params }: PaymentPageProps) {
     const supabase = createClient()
     supabase
       .from('orders')
-      .select('*')
+      .select('*, items:order_items(*)')
       .eq('id', orderId)
       .eq('user_id', user.id)
       .single()
@@ -112,6 +113,7 @@ export default function UpiPaymentPage({ params }: PaymentPageProps) {
       toast.error('Could not submit. Please try again.')
       return
     }
+    setOrder({ ...order, utr_number: utr, payment_status: 'awaiting_verification' })
     setSubmitted(true)
   }
 
@@ -158,6 +160,7 @@ export default function UpiPaymentPage({ params }: PaymentPageProps) {
           { label: 'Payment', value: 'Verification pending' },
         ]}
         note="Confirmation details sent to your mobile"
+        whatsappHref={orderWhatsAppUrl(order)}
         primaryHref={`/orders/${order.id}`}
         primaryLabel="View Order"
         secondaryHref="/products"

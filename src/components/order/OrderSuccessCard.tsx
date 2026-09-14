@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Check } from 'lucide-react'
+import { Check, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const CONFETTI_DOTS = [
@@ -21,6 +21,8 @@ interface OrderSuccessCardProps {
   onCopyOrderNumber?: () => void
   details?: { label: string; value: string }[]
   note?: string
+  /** Omitted when the shop has no WhatsApp number configured. */
+  whatsappHref?: string | null
   primaryHref: string
   primaryLabel: string
   secondaryHref: string
@@ -34,6 +36,7 @@ export function OrderSuccessCard({
   onCopyOrderNumber,
   details = [],
   note,
+  whatsappHref,
   primaryHref,
   primaryLabel,
   secondaryHref,
@@ -79,7 +82,24 @@ export function OrderSuccessCard({
 
         {note && <p className="mt-3 text-xs text-stone-400">{note}</p>}
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
+        {whatsappHref && (
+          <div className="mt-6">
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-3 text-sm font-bold leading-snug text-white shadow-sm transition-colors hover:bg-[#1da851]"
+            >
+              <MessageCircle className="h-5 w-5 shrink-0" />
+              Send WhatsApp Message for This Order
+            </a>
+            <p className="mt-2 text-xs text-stone-400">
+              Your order details are filled in — just press Send.
+            </p>
+          </div>
+        )}
+
+        <div className={cn('grid grid-cols-2 gap-3', whatsappHref ? 'mt-4' : 'mt-6')}>
           <Link
             href={secondaryHref}
             className="rounded-xl border-2 border-cream-dark px-4 py-2.5 text-sm font-semibold text-maroon transition-colors hover:border-maroon"

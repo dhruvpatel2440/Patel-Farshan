@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { OrderSuccessCard } from '@/components/order/OrderSuccessCard'
 import { useAuth } from '@/hooks/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import { orderWhatsAppUrl } from '@/lib/whatsapp'
 import type { Order } from '@/types'
 
 interface SuccessPageProps {
@@ -28,7 +29,7 @@ export default function OrderSuccessPage({ params }: SuccessPageProps) {
     const supabase = createClient()
     supabase
       .from('orders')
-      .select('*')
+      .select('*, items:order_items(*)')
       .eq('id', orderId)
       .eq('user_id', user.id)
       .single()
@@ -65,6 +66,7 @@ export default function OrderSuccessPage({ params }: SuccessPageProps) {
         },
       ]}
       note="Confirmation details sent to your mobile"
+      whatsappHref={orderWhatsAppUrl(order)}
       primaryHref={`/orders/${order.id}`}
       primaryLabel="View Order"
       secondaryHref="/products"
