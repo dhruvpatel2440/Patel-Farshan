@@ -15,6 +15,8 @@ import {
 import { AddressCard } from '@/components/checkout/AddressCard'
 import { AddressForm } from '@/components/checkout/AddressForm'
 import { InstallAppRow } from '@/components/pwa/InstallAppRow'
+import { NotificationsRow } from '@/components/pwa/NotificationsRow'
+import { forgetPushSubscription } from '@/hooks/usePushNotifications'
 import { useAuth } from '@/hooks/useAuth'
 import { useCartStore } from '@/store/cartStore'
 import { createClient } from '@/lib/supabase/client'
@@ -158,6 +160,7 @@ export default function AccountPage() {
   }
 
   async function handleLogout() {
+    await forgetPushSubscription()
     const supabase = createClient()
     await supabase.auth.signOut()
     clearCart()
@@ -269,6 +272,7 @@ export default function AccountPage() {
 
               <div className="border-t border-cream-dark pt-4">
                 <InstallAppRow className="-mx-3 w-[calc(100%+1.5rem)]" />
+                <NotificationsRow className="-mx-3 w-[calc(100%+1.5rem)]" />
               </div>
             </div>
           )}

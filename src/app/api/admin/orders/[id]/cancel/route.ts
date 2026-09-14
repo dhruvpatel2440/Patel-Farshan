@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
 import { orderCancelledHtml, orderCancelledText } from '@/lib/emailTemplates'
 import { orderRecipient } from '@/lib/notify'
+import { pushToUser } from '@/lib/push'
 import { withAudit, setAuditTarget } from '@/lib/audit'
 
 export const PATCH = withAudit(
@@ -65,6 +66,13 @@ export const PATCH = withAudit(
     status: 'cancelled',
     changed_by: auth.user.id,
     note,
+  })
+
+  await pushToUser(order.user_id, {
+    title: 'Order cancelled',
+    body: `Order #${order.order_number} was cancelled: ${reason}`.slice(0, 180),
+    url: `/orders/${order.id}`,
+    tag: `order-${order.id}`,
   })
 
   // Tell the customer why — the reason is captured here but was never

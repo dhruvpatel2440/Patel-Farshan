@@ -7,6 +7,7 @@ import { Menu, ShoppingCart, User as UserIcon } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCartStore, selectCartCount } from '@/store/cartStore'
 import { createClient } from '@/lib/supabase/client'
+import { forgetPushSubscription } from '@/hooks/usePushNotifications'
 import {
   Sheet,
   SheetContent,
@@ -50,6 +51,7 @@ export function Navbar() {
   }, [])
 
   async function handleLogout() {
+    await forgetPushSubscription()
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/')

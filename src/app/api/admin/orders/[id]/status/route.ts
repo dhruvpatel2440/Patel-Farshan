@@ -5,6 +5,7 @@ import { ADMIN_STATUS_FLOW } from '@/lib/constants'
 import { sendEmail } from '@/lib/email'
 import { outForDeliveryHtml, outForDeliveryText } from '@/lib/emailTemplates'
 import { orderRecipient } from '@/lib/notify'
+import { pushOrderStatus } from '@/lib/push'
 import { withAudit, setAuditTarget } from '@/lib/audit'
 
 export const PATCH = withAudit(
@@ -48,6 +49,9 @@ export const PATCH = withAudit(
     changed_by: auth.user.id,
     note: note || null,
   })
+
+  // Push costs nothing per send, so unlike email every step gets one.
+  await pushOrderStatus(order, status)
 
   // Only 'out_for_delivery' is worth an email. Notifying on every step would
   // spend ~3 sends per order against a 300/day cap for little customer value.

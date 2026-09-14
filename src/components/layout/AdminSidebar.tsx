@@ -6,6 +6,8 @@ import { LayoutDashboard, Package, FolderTree, ClipboardList, Building2, Users, 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { OrnamentalDivider } from '@/components/shared/OrnamentalDivider'
 import { createClient } from '@/lib/supabase/client'
+import { NotificationsRow } from '@/components/pwa/NotificationsRow'
+import { forgetPushSubscription } from '@/hooks/usePushNotifications'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
@@ -28,6 +30,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   async function handleLogout() {
     // Server-side so the httpOnly admin elevation cookie is cleared too —
     // signing out client-side alone would leave it valid for 8 hours.
+    await forgetPushSubscription()
     await fetch('/api/admin-auth/logout', { method: 'POST' })
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -72,6 +75,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </a>
       </nav>
 
+      {/* New-order alerts on the shop's phone, so orders aren't only found
+          by opening the dashboard. */}
+      <NotificationsRow
+        tone="dark"
+        label="New Order Alerts"
+        enabledMessage="Alerts on — this device will buzz for every new order."
+        className="border-l-[3px] border-l-transparent"
+      />
       <button
         onClick={handleLogout}
         className="flex items-center gap-2.5 rounded-md border-l-[3px] border-l-transparent px-3 py-2.5 text-sm font-medium text-gold hover:bg-gold/5"

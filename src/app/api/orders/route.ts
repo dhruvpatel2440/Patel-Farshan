@@ -9,6 +9,7 @@ import {
   orderConfirmationText,
 } from '@/lib/emailTemplates'
 import { adminInbox } from '@/lib/notify'
+import { pushToAdmins } from '@/lib/push'
 import { formatWeightKg } from '@/lib/weight'
 import type { Address, PaymentMode } from '@/types'
 
@@ -269,6 +270,15 @@ export async function POST(request: Request) {
         context: 'new-order-admin',
       }).catch(() => {})
     }
+
+    // Buzzes the shop's phone. Awaited (unlike the emails) because it's quick
+    // and a serverless function may be frozen the moment the response is sent.
+    await pushToAdmins({
+      title: `New order #${order.order_number} 🛒`,
+      body: `${address.full_name} · ₹${order.total} · ${order.payment_mode === 'cod' ? 'Cash on delivery' : 'UPI'}`,
+      url: `/admin/orders/${order.id}`,
+      tag: `new-order-${order.id}`,
+    })
 
     return NextResponse.json({ order })
   } catch {

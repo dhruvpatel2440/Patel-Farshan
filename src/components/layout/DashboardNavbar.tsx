@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { InstallAppRow } from '@/components/pwa/InstallAppRow'
+import { NotificationsRow } from '@/components/pwa/NotificationsRow'
+import { forgetPushSubscription } from '@/hooks/usePushNotifications'
 import { cn } from '@/lib/utils'
 
 export const DASHBOARD_NAV_LINKS = [
@@ -53,6 +55,7 @@ export function DashboardNavbar() {
   }, [])
 
   async function handleLogout() {
+    await forgetPushSubscription()
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/')
@@ -120,6 +123,7 @@ export function DashboardNavbar() {
                 ))}
                 <div className="my-2 h-px bg-cream-dark" />
                 <InstallAppRow onInstalling={() => setMenuOpen(false)} />
+                <NotificationsRow />
                 <SheetClose
                   nativeButton={false}
                   render={
