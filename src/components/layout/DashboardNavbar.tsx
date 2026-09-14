@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { InstallAppRow } from '@/components/pwa/InstallAppRow'
 import { cn } from '@/lib/utils'
 
 export const DASHBOARD_NAV_LINKS = [
@@ -40,6 +41,7 @@ export function DashboardNavbar() {
   const cartCount = useCartStore(selectCartCount)
   const [hydrated, setHydrated] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => setHydrated(true), [])
 
@@ -69,7 +71,7 @@ export function DashboardNavbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-2.5 md:px-6">
         {/* Mobile: hamburger */}
         <div className="flex items-center gap-2 md:hidden">
-          <Sheet>
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger
               aria-label="Open menu"
               className="-ml-2 p-2 text-cream transition-colors hover:text-gold"
@@ -117,6 +119,7 @@ export function DashboardNavbar() {
                   />
                 ))}
                 <div className="my-2 h-px bg-cream-dark" />
+                <InstallAppRow onInstalling={() => setMenuOpen(false)} />
                 <SheetClose
                   nativeButton={false}
                   render={

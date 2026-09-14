@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Download, LogOut, MapPin, Pencil, Plus, Share, User as UserIcon } from 'lucide-react'
+import { LogOut, MapPin, Pencil, Plus, User as UserIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/dialog'
 import { AddressCard } from '@/components/checkout/AddressCard'
 import { AddressForm } from '@/components/checkout/AddressForm'
+import { InstallAppRow } from '@/components/pwa/InstallAppRow'
 import { useAuth } from '@/hooks/useAuth'
-import { usePwaInstall } from '@/hooks/usePwaInstall'
 import { useCartStore } from '@/store/cartStore'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -29,8 +29,6 @@ export default function AccountPage() {
   const router = useRouter()
   const { user, profile, isLoading: authLoading } = useAuth()
   const clearCart = useCartStore((s) => s.clearCart)
-  const { installed: appInstalled, ios: isIos, canPrompt: canPromptInstall, promptInstall } =
-    usePwaInstall()
 
   const [tab, setTab] = useState<TabKey>('profile')
   const [orderCount, setOrderCount] = useState(0)
@@ -39,7 +37,6 @@ export default function AccountPage() {
   const [editingAddress, setEditingAddress] = useState<Address | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Address | null>(null)
   const [logoutOpen, setLogoutOpen] = useState(false)
-  const [iosInstallHelpOpen, setIosInstallHelpOpen] = useState(false)
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -160,19 +157,6 @@ export default function AccountPage() {
     setDeleteTarget(null)
   }
 
-  async function handleDownloadApp() {
-    if (canPromptInstall) {
-      const outcome = await promptInstall()
-      if (outcome === 'accepted') toast.success('Patel Farsan app added to your home screen.')
-      return
-    }
-    if (isIos) {
-      setIosInstallHelpOpen(true)
-      return
-    }
-    toast.info('Open this page in Chrome to download the app.')
-  }
-
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -223,14 +207,6 @@ export default function AccountPage() {
           >
             <MapPin className="h-4 w-4" /> My Addresses
           </button>
-          {!appInstalled && (
-            <button
-              onClick={handleDownloadApp}
-              className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-stone-600 hover:bg-maroon/5"
-            >
-              <Download className="h-4 w-4" /> Download App
-            </button>
-          )}
           <button
             onClick={() => setLogoutOpen(true)}
             className="flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
@@ -289,6 +265,10 @@ export default function AccountPage() {
                     </button>
                   </div>
                 )}
+              </div>
+
+              <div className="border-t border-cream-dark pt-4">
+                <InstallAppRow className="-mx-3 w-[calc(100%+1.5rem)]" />
               </div>
             </div>
           )}
@@ -352,23 +332,6 @@ export default function AccountPage() {
             <button onClick={handleDeleteAddress} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">
               Delete
             </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* iOS "Add to Home Screen" instructions — Safari gives no install prompt to trigger. */}
-      <Dialog open={iosInstallHelpOpen} onOpenChange={setIosInstallHelpOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-maroon">Add to Home Screen</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-stone-600">
-            Tap the <Share className="mx-0.5 inline h-4 w-4 text-maroon" aria-label="Share" />{' '}
-            button at the bottom of Safari, then choose{' '}
-            <span className="font-semibold text-maroon">Add to Home Screen</span>.
-          </p>
-          <DialogFooter className="mt-4">
-            <DialogClose nativeButton={false} render={<button className="btn-primary">Got it</button>} />
           </DialogFooter>
         </DialogContent>
       </Dialog>

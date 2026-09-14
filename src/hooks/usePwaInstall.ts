@@ -10,6 +10,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 /** Chrome-only, and likewise missing from the DOM lib. */
 type NavigatorWithRelatedApps = Navigator & {
+  getInstalledRelatedApps?: () => Promise<Array<{ id?: string; platform?: string; url?: string }>>
   standalone?: boolean
 }
 
@@ -29,9 +30,17 @@ function isIos() {
 }
 
 /**
- * Lets any page offer its own "Download App" button, independent of the
- * one-time install popup — for a customer who waved that away and wants it
- * back later instead of waiting for it to reappear.
+ * Lets any page offer its own "Install App" row, independent of the one-time
+ * install popup — for a customer who waved that away and wants it back later
+ * instead of waiting for it to reappear.
+ *
+ * This one also has to *state* whether the app is installed, so a wrong answer
+ * is visible rather than merely quiet. The stored flag alone is not enough: it
+ * is also set when an iPhone customer taps "I've added it", and it survives a
+ * later uninstall. So a `beforeinstallprompt` overrules it — Chrome withholds
+ * that event entirely while the app is installed, which makes firing it proof
+ * of the opposite. The stored flag stays untouched either way; it belongs to
+ * the popup, and rewriting it here would start the popup asking again.
  */
 export function usePwaInstall() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
@@ -51,11 +60,27 @@ export function usePwaInstall() {
     // Captured before React hydrated, if Chrome fired it that early.
     const pending = (window as Window & { __pfInstallEvent?: BeforeInstallPromptEvent })
       .__pfInstallEvent
-    if (pending) setInstallEvent(pending)
+    if (pending) {
+      setInstallEvent(pending)
+      setInstalled(false)
+    }
+
+    // Chrome can confirm an install from an earlier visit, which is the only
+    // way to know from an ordinary tab.
+    const nav = window.navigator as NavigatorWithRelatedApps
+    nav
+      .getInstalledRelatedApps?.()
+      .then((apps) => {
+        // Only a positive result counts: an empty list is also what a browser
+        // that cannot answer returns.
+        if (apps.length > 0) setInstalled(true)
+      })
+      .catch(() => {})
 
     function onBeforeInstallPrompt(event: Event) {
       event.preventDefault()
       setInstallEvent(event as BeforeInstallPromptEvent)
+      setInstalled(false)
     }
     function onInstalled() {
       setInstalled(true)
