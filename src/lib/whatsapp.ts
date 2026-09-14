@@ -3,13 +3,8 @@ import { SHOP_NAME, SHOP_WHATSAPP, SITE_URL } from '@/lib/constants'
 import type { Order, OrderItem, OrderStatus } from '@/types'
 
 function formatItem(item: OrderItem, index: number): string {
-  // Both names: the shop reads Gujarati, but the English one removes any doubt
-  // about which product it is.
-  const name = item.product_name_gujarati
-    ? `${item.product_name_gujarati} (${item.product_name})`
-    : item.product_name
   const unit = item.unit_label ? ` ${item.unit_label}` : ''
-  return `${index + 1}. ${name}${unit} — ${item.quantity} × ₹${item.price_at_purchase} = ₹${item.line_total}`
+  return `${index + 1}. ${item.product_name}${unit} — ${item.quantity} × ₹${item.price_at_purchase} = ₹${item.line_total}`
 }
 
 function paymentLabel(order: Order): string {
