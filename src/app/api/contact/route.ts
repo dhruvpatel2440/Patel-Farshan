@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
+import { pushToAdmins } from '@/lib/push'
 
 interface ContactBody {
   name: string
@@ -43,6 +44,14 @@ export async function POST(request: Request) {
       context: 'contact-form',
     })
   }
+
+  // Same message on the shop's phone — sent even when email isn't configured.
+  await pushToAdmins({
+    title: `New message from ${body.name} 💬`,
+    body: `${body.subject ? `${body.subject}: ` : ''}${body.message}`.slice(0, 180),
+    url: `/admin`,
+    tag: `contact-${Date.now()}`,
+  })
 
   // Even without email configured, the form still "succeeds" — the shop
   // primarily follows up over WhatsApp/phone.

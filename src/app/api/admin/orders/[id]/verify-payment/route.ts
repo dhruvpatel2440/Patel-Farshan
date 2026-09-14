@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { withAudit, setAuditTarget } from '@/lib/audit'
-import { pushToUser } from '@/lib/push'
 
 export const PATCH = withAudit(
   'order.payment_verify',
@@ -36,13 +35,6 @@ export const PATCH = withAudit(
     status: 'confirmed',
     changed_by: auth.user.id,
     note: 'Payment verified by admin',
-  })
-
-  await pushToUser(order.user_id, {
-    title: 'Payment received ✅',
-    body: `We've verified your payment of ₹${order.total}. Order #${order.order_number} is confirmed.`,
-    url: `/orders/${order.id}`,
-    tag: `order-${order.id}`,
   })
 
   return NextResponse.json({ ok: true })

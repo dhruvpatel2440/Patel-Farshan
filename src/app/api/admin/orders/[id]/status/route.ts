@@ -5,7 +5,7 @@ import { ADMIN_STATUS_FLOW } from '@/lib/constants'
 import { sendEmail } from '@/lib/email'
 import { outForDeliveryHtml, outForDeliveryText } from '@/lib/emailTemplates'
 import { orderRecipient } from '@/lib/notify'
-import { pushOrderStatus } from '@/lib/push'
+import { pushToUser } from '@/lib/push'
 import { withAudit, setAuditTarget } from '@/lib/audit'
 
 export const PATCH = withAudit(
@@ -50,12 +50,29 @@ export const PATCH = withAudit(
     note: note || null,
   })
 
-  // Push costs nothing per send, so unlike email every step gets one.
-  await pushOrderStatus(order, status)
+  // No email for this one — just a nudge to review while the food is fresh in
+  // their mind. Opens the feedback form at the top of the dashboard.
+  if (status === 'delivered') {
+    await pushToUser(order.user_id, {
+      title: 'Delivered — enjoy! 🎉',
+      body: `Your order #${order.order_number} has been delivered. Tap to rate us ⭐`,
+      url: '/dashboard#feedback',
+      tag: `order-${order.id}`,
+    })
+  }
 
   // Only 'out_for_delivery' is worth an email. Notifying on every step would
   // spend ~3 sends per order against a 300/day cap for little customer value.
   if (status === 'out_for_delivery') {
+    // The phone notification mirrors the email, and goes out even when the
+    // account has no usable email address.
+    await pushToUser(order.user_id, {
+      title: 'Out for delivery 🚚',
+      body: `Your order #${order.order_number} is out for delivery and will reach you shortly.`,
+      url: `/orders/${order.id}`,
+      tag: `order-${order.id}`,
+    })
+
     const recipient = await orderRecipient(order.user_id)
     if (recipient) {
       const payload = {

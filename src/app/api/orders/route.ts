@@ -9,7 +9,7 @@ import {
   orderConfirmationText,
 } from '@/lib/emailTemplates'
 import { adminInbox } from '@/lib/notify'
-import { pushToAdmins } from '@/lib/push'
+import { pushToAdmins, pushToUser } from '@/lib/push'
 import { formatWeightKg } from '@/lib/weight'
 import type { Address, PaymentMode } from '@/types'
 
@@ -271,14 +271,24 @@ export async function POST(request: Request) {
       }).catch(() => {})
     }
 
-    // Buzzes the shop's phone. Awaited (unlike the emails) because it's quick
-    // and a serverless function may be frozen the moment the response is sent.
-    await pushToAdmins({
-      title: `New order #${order.order_number} 🛒`,
-      body: `${address.full_name} · ₹${order.total} · ${order.payment_mode === 'cod' ? 'Cash on delivery' : 'UPI'}`,
-      url: `/admin/orders/${order.id}`,
-      tag: `new-order-${order.id}`,
-    })
+    // Phone notifications for the same two emails above: the customer's
+    // confirmation and the shop's new-order alert. Awaited (unlike the emails)
+    // because they're quick and a serverless function may be frozen the moment
+    // the response is sent.
+    await Promise.all([
+      pushToUser(user.id, {
+        title: 'Order confirmed ✅',
+        body: `Thank you! Your order #${order.order_number} for ₹${order.total} has been placed.`,
+        url: `/orders/${order.id}`,
+        tag: `order-${order.id}`,
+      }),
+      pushToAdmins({
+        title: `New order #${order.order_number} 🛒`,
+        body: `${address.full_name} · ₹${order.total} · ${order.payment_mode === 'cod' ? 'Cash on delivery' : 'UPI'}`,
+        url: `/admin/orders/${order.id}`,
+        tag: `new-order-${order.id}`,
+      }),
+    ])
 
     return NextResponse.json({ order })
   } catch {

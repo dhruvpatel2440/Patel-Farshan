@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { pushToAdmins } from '@/lib/push'
 
 /** All of the signed-in customer's own feedback, most recent first. */
 export async function GET() {
@@ -63,6 +64,14 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: 'Could not save your feedback.' }, { status: 500 })
+
+  // Reviews stay hidden until approved, so tell the shop one is waiting.
+  await pushToAdmins({
+    title: `New ${rating}★ review from ${data.user_name}`,
+    body: message ? message.slice(0, 180) : 'No comment — tap to approve or hide it.',
+    url: '/admin/feedback',
+    tag: `feedback-${data.id}`,
+  })
 
   return NextResponse.json({ feedback: data })
 }

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/adminAuth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { withAudit, setAuditTarget } from '@/lib/audit'
-import { pushToUser } from '@/lib/push'
 
 export const PATCH = withAudit(
   'order.payment_reject',
@@ -31,13 +30,6 @@ export const PATCH = withAudit(
     status: order.order_status,
     changed_by: auth.user.id,
     note: note || 'Payment rejected by admin — UTR did not match',
-  })
-
-  await pushToUser(order.user_id, {
-    title: 'Payment not verified',
-    body: `We couldn't match your payment for order #${order.order_number}. Please check the UTR or contact us.`,
-    url: `/orders/${order.id}`,
-    tag: `order-${order.id}`,
   })
 
   return NextResponse.json({ ok: true })

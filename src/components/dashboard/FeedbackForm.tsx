@@ -45,7 +45,8 @@ export function FeedbackForm() {
     // scrolled past — this is deliberately loud (maroon gradient, glowing
     // icon badge, decorative circles) so it reads as a distinct, unmissable
     // call to action rather than blending into the order cards around it.
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-maroon to-maroon-light p-5 shadow-lg md:p-6">
+    // id: the "Delivered — tap to rate us" notification links to #feedback.
+    <div id="feedback" className="relative scroll-mt-20 overflow-hidden rounded-2xl bg-gradient-to-br from-maroon to-maroon-light p-5 shadow-lg md:p-6">
       <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-gold/10" aria-hidden="true" />
       <div className="pointer-events-none absolute -bottom-10 -left-6 h-28 w-28 rounded-full bg-gold/10" aria-hidden="true" />
 
