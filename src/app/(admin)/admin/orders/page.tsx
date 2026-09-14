@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { format } from 'date-fns'
-import { CalendarClock, ChevronDown, Loader2, Phone, Printer } from 'lucide-react'
+import { CalendarClock, ChevronDown, Loader2, MessageCircle, Phone, Printer } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog,
@@ -17,6 +17,7 @@ import {
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { createClient } from '@/lib/supabase/client'
 import { ADMIN_STATUS_FLOW } from '@/lib/constants'
+import { customerWhatsAppUrl } from '@/lib/whatsapp'
 import { cn } from '@/lib/utils'
 import type { Order, OrderStatus } from '@/types'
 
@@ -249,6 +250,7 @@ export default function AdminOrdersPage() {
             const expanded = expandedId === order.id
             const nextStatus =
               ADMIN_STATUS_FLOW[ADMIN_STATUS_FLOW.indexOf(order.order_status as (typeof ADMIN_STATUS_FLOW)[number]) + 1]
+            const whatsappHref = customerWhatsAppUrl(order)
 
             return (
               <div key={order.id} className="rounded-xl border border-stone-200 bg-white">
@@ -376,6 +378,17 @@ export default function AdminOrdersPage() {
                           </button>
                         )}
                       </div>
+
+                      {whatsappHref && (
+                        <a
+                          href={whatsappHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#1da851]"
+                        >
+                          <MessageCircle className="h-4 w-4 shrink-0" /> Send WhatsApp to Customer
+                        </a>
+                      )}
 
                       <button
                         onClick={() => window.print()}

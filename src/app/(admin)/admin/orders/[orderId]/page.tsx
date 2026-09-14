@@ -1,9 +1,12 @@
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
+import { MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { PrintButton } from '@/components/admin/PrintButton'
 import { SHOP_NAME } from '@/lib/constants'
+import { customerWhatsAppUrl } from '@/lib/whatsapp'
+import type { Order } from '@/types'
 
 interface AdminOrderDetailProps {
   params: Promise<{ orderId: string }>
@@ -27,7 +30,8 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     .eq('id', orderRaw.user_id)
     .single()
 
-  const order = { ...orderRaw, profile }
+  const order = { ...orderRaw, profile } as Order
+  const whatsappHref = customerWhatsAppUrl(order)
 
   return (
     <div className="mx-auto max-w-3xl p-4 md:p-8">
@@ -109,6 +113,17 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
           </div>
         </div>
       </div>
+
+      {whatsappHref && (
+        <a
+          href={whatsappHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-[#25D366] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#1da851] print:hidden"
+        >
+          <MessageCircle className="h-4 w-4 shrink-0" /> Send WhatsApp to Customer
+        </a>
+      )}
 
       <PrintButton />
     </div>

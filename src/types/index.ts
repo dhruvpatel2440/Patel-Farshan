@@ -91,6 +91,7 @@ export interface Order {
   payment_status: PaymentStatus
   order_status: OrderStatus
   utr_number?: string
+  cancellation_reason?: string
   delivery_instructions?: string
   placed_at: string
   delivered_at?: string
