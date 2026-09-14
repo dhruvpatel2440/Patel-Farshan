@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Share, X } from 'lucide-react'
+import { INSTALL_PROMPT_HIDDEN_EVENT, INSTALL_PROMPT_OPEN_FLAG } from '@/components/pwa/NotificationPrompt'
 
 /** Chrome's install event — still not in TypeScript's DOM lib. */
 interface BeforeInstallPromptEvent extends Event {
@@ -174,6 +175,15 @@ export function InstallPrompt() {
       window.removeEventListener('appinstalled', onInstalled)
     }
   }, [onAdmin])
+
+  // Lets the notifications popup wait its turn instead of stacking on this one.
+  useEffect(() => {
+    const flags = window as unknown as Record<string, unknown>
+    const open = visible && !onAdmin
+    const wasOpen = flags[INSTALL_PROMPT_OPEN_FLAG] === true
+    flags[INSTALL_PROMPT_OPEN_FLAG] = open
+    if (wasOpen && !open) window.dispatchEvent(new Event(INSTALL_PROMPT_HIDDEN_EVENT))
+  }, [visible, onAdmin])
 
   // With a backdrop up, Escape has to close it — on desktop there is nothing
   // else to reach for.

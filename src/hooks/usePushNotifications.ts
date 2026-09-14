@@ -37,6 +37,65 @@ function keyToBytes(base64url: string) {
   return bytes
 }
 
+/**
+ * Set when the customer switches notifications off themselves. Without it,
+ * the silent re-subscribe below would quietly turn them back on next visit,
+ * since the browser permission is still "granted".
+ */
+const OPTED_OUT_KEY = 'pf-push-opted-out'
+/** Tells every mounted copy of the hook (menu row, popup…) to re-check. */
+const CHANGED_EVENT = 'pf:push-changed'
+
+function optedOut() {
+  try {
+    return window.localStorage.getItem(OPTED_OUT_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+function setOptedOut(value: boolean) {
+  try {
+    if (value) window.localStorage.setItem(OPTED_OUT_KEY, '1')
+    else window.localStorage.removeItem(OPTED_OUT_KEY)
+  } catch {
+    // Storage blocked: worst case, notifications come back on next visit.
+  }
+}
+
+/**
+ * Subscribes this device and saves it for the signed-in account. Needs the
+ * permission to be granted already — it never asks.
+ */
+async function subscribeAndSave() {
+  // Registered here too, not just by the install prompt: that one only
+  // registers in production, and this must work wherever it is offered.
+  await navigator.serviceWorker.register('/sw.js')
+  const registration = await navigator.serviceWorker.ready
+
+  const subscription =
+    (await registration.pushManager.getSubscription()) ??
+    (await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: keyToBytes(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
+    }))
+
+  const res = await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(subscription.toJSON()),
+  })
+  if (!res.ok) {
+    // The phone would think it is subscribed while the server has no record —
+    // undo it so the switch shows the truth.
+    await subscription.unsubscribe()
+    return false
+  }
+  return true
+}
+
+let silentSubscribe: Promise<boolean> | null = null
+
 async function currentSubscription() {
   const registration = await navigator.serviceWorker.getRegistration()
   return (await registration?.pushManager.getSubscription()) ?? null
@@ -65,6 +124,11 @@ export async function forgetPushSubscription() {
 /**
  * Turns phone notifications on and off for the signed-in account. Only mount
  * it where someone is signed in — saving a subscription needs a session.
+ *
+ * Browsers never let a site switch notifications on without the person tapping
+ * "Allow" once. So this does the next best thing: whenever permission is
+ * already granted (allowed earlier, logged in again, reinstalled) it
+ * subscribes silently, unless the customer turned notifications off here.
  */
 export function usePushNotifications() {
   const [state, setState] = useState<PushState>('loading')
@@ -73,7 +137,7 @@ export function usePushNotifications() {
   useEffect(() => {
     let cancelled = false
 
-    async function check() {
+    async function check(): Promise<PushState> {
       const supported =
         'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 
@@ -83,9 +147,17 @@ export function usePushNotifications() {
       }
       if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) return 'unsupported'
       if (Notification.permission === 'denied') return 'denied'
+      if (Notification.permission !== 'granted') return 'off'
 
       const subscription = await currentSubscription()
-      if (!subscription || Notification.permission !== 'granted') return 'off'
+      if (!subscription) {
+        if (optedOut()) return 'off'
+        // The menu row and the popup can mount together; subscribe once.
+        silentSubscribe ??= subscribeAndSave().finally(() => {
+          silentSubscribe = null
+        })
+        return (await silentSubscribe) ? 'on' : 'off'
+      }
 
       // Re-send it on every visit. Cheap, and it repairs the row if it was
       // cleaned up server-side or this phone changed hands between accounts.
@@ -97,56 +169,39 @@ export function usePushNotifications() {
       return 'on'
     }
 
-    check()
-      .then((result) => {
-        if (!cancelled) setState(result)
-      })
-      .catch(() => {
-        if (!cancelled) setState('unsupported')
-      })
+    function run() {
+      check()
+        .then((result) => {
+          if (!cancelled) setState(result)
+        })
+        .catch(() => {
+          if (!cancelled) setState('unsupported')
+        })
+    }
 
+    run()
+    window.addEventListener(CHANGED_EVENT, run)
     return () => {
       cancelled = true
+      window.removeEventListener(CHANGED_EVENT, run)
     }
   }, [])
 
-  /** Resolves to whether notifications ended up on. */
+  /** Asks for permission (must run from a tap). Resolves to whether it's on. */
   const enable = useCallback(async () => {
     setBusy(true)
     try {
-      // Registered here too, not just by the install prompt: that one only
-      // registers in production, and this must work wherever it is offered.
-      await navigator.serviceWorker.register('/sw.js')
-      const registration = await navigator.serviceWorker.ready
-
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
         setState(permission === 'denied' ? 'denied' : 'off')
         return false
       }
 
-      const subscription =
-        (await registration.pushManager.getSubscription()) ??
-        (await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: keyToBytes(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
-        }))
-
-      const res = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(subscription.toJSON()),
-      })
-      if (!res.ok) {
-        // The phone would think it is subscribed while the server has no
-        // record — undo it so the switch shows the truth.
-        await subscription.unsubscribe()
-        setState('off')
-        return false
-      }
-
-      setState('on')
-      return true
+      setOptedOut(false)
+      const ok = await subscribeAndSave()
+      setState(ok ? 'on' : 'off')
+      window.dispatchEvent(new Event(CHANGED_EVENT))
+      return ok
     } catch {
       setState('off')
       return false
@@ -157,9 +212,11 @@ export function usePushNotifications() {
 
   const disable = useCallback(async () => {
     setBusy(true)
+    setOptedOut(true)
     await forgetPushSubscription()
     setState('off')
     setBusy(false)
+    window.dispatchEvent(new Event(CHANGED_EVENT))
   }, [])
 
   return { state, busy, enable, disable }

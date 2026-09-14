@@ -4,6 +4,7 @@ import localFont from 'next/font/local'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import { InstallPrompt } from '@/components/pwa/InstallPrompt'
+import { NotificationPrompt } from '@/components/pwa/NotificationPrompt'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 const playfair = Playfair_Display({
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         {children}
         <InstallPrompt />
+        <NotificationPrompt />
         <Toaster richColors position="top-right" />
       </body>
     </html>
