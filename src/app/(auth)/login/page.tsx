@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff, AlertTriangle, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, AlertTriangle, Loader2, UserPlus, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { loginSchema, type LoginInput } from '@/lib/validations'
 
@@ -134,12 +134,33 @@ function LoginForm() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-stone-600">
-          New here?{' '}
-          <Link href="/register" className="font-semibold text-maroon hover:text-gold">
-            Create an account
+        <div className="my-6 flex items-center gap-3">
+          <span className="h-px flex-1 bg-cream-dark" />
+          <span className="text-xs font-semibold uppercase tracking-wider text-stone-400">or</span>
+          <span className="h-px flex-1 bg-cream-dark" />
+        </div>
+
+        {/* Registration is highlighted as a full call-to-action block: many of our
+            customers are first-time app users, so a plain text link is missed. */}
+        <div className="rounded-xl border-2 border-gold bg-cream p-4 text-center">
+          <p className="font-serif text-base font-bold text-maroon">
+            First time here? Create your account
+          </p>
+          <p className="mt-0.5 text-sm text-stone-600">
+            પહેલી વાર આવ્યા છો? નવું ખાતું બનાવો
+          </p>
+
+          <Link
+            href="/register"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-5 py-3.5 text-base font-bold text-maroon shadow-sm transition-all duration-200 hover:bg-gold-dark hover:text-cream active:scale-[0.98]"
+          >
+            <UserPlus className="h-5 w-5 shrink-0" />
+            Create New Account
+            <ArrowRight className="h-5 w-5 shrink-0" />
           </Link>
-        </p>
+
+          <p className="mt-2 text-xs text-stone-500">Takes less than a minute — it&apos;s free</p>
+        </div>
       </div>
     </div>
   )
