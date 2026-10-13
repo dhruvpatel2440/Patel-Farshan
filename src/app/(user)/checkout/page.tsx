@@ -10,6 +10,7 @@ import { AddressCard } from '@/components/checkout/AddressCard'
 import { AddressForm } from '@/components/checkout/AddressForm'
 import { useCartStore } from '@/store/cartStore'
 import { useAuth } from '@/hooks/useAuth'
+import { useShopStatus } from '@/hooks/useShopStatus'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { formatWeightKg } from '@/lib/weight'
@@ -23,6 +24,7 @@ export default function CheckoutPage() {
   const { user, isLoading: authLoading } = useAuth()
   const items = useCartStore((s) => s.items)
   const clearCart = useCartStore((s) => s.clearCart)
+  const shop = useShopStatus()
 
   const [hydrated, setHydrated] = useState(false)
   const [addresses, setAddresses] = useState<Address[]>([])
@@ -96,7 +98,7 @@ export default function CheckoutPage() {
   }
 
   async function handlePlaceOrder() {
-    if (!selectedAddress || !minOrderMet) return
+    if (!selectedAddress || !minOrderMet || !shop.is_open) return
     setIsPlacing(true)
 
     try {
@@ -308,9 +310,16 @@ export default function CheckoutPage() {
                   </p>
                 )}
 
+                {!shop.is_open && (
+                  <p className="text-xs font-semibold text-red-600">
+                    {shop.closed_message?.trim() ||
+                      "The shop is currently closed and isn't taking orders. Please check back later."}
+                  </p>
+                )}
+
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={isPlacing || !minOrderMet}
+                  disabled={isPlacing || !minOrderMet || !shop.is_open}
                   className="btn-primary flex w-full items-center justify-center gap-2 disabled:cursor-not-allowed"
                 >
                   {isPlacing && <Loader2 className="h-4 w-4 animate-spin" />}

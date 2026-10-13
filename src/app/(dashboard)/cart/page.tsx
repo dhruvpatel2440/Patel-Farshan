@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { OrnamentalDivider } from '@/components/shared/OrnamentalDivider'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useCartStore } from '@/store/cartStore'
+import { useShopStatus } from '@/hooks/useShopStatus'
 import type { CartItem } from '@/types'
 
 export default function CartPage() {
@@ -18,6 +19,7 @@ export default function CartPage() {
   const removeItem = useCartStore((s) => s.removeItem)
   const addBack = useCartStore((s) => s.addItem)
   const [hydrated, setHydrated] = useState(false)
+  const shop = useShopStatus()
 
   useEffect(() => setHydrated(true), [])
 
@@ -56,6 +58,13 @@ export default function CartPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 pb-28 md:px-6 md:py-10 md:pb-10">
       <h1 className="section-title text-2xl md:text-3xl">Your Cart</h1>
       <OrnamentalDivider size="sm" />
+
+      {!shop.is_open && (
+        <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          {shop.closed_message?.trim() ||
+            "The shop is currently closed and isn't taking orders. Your cart is saved — please check back later."}
+        </p>
+      )}
 
       <div className="flex flex-col gap-8 md:flex-row">
         {/* Items */}
@@ -136,7 +145,11 @@ export default function CartPage() {
               <span className="font-semibold text-stone-700">Total</span>
               <span className="font-serif text-2xl font-bold text-maroon">₹{subtotal.toFixed(0)}</span>
             </div>
-            <button onClick={() => router.push('/checkout')} className="btn-primary mt-5 w-full justify-center">
+            <button
+              onClick={() => router.push('/checkout')}
+              disabled={!shop.is_open}
+              className="btn-primary mt-5 w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
+            >
               Proceed to Checkout
             </button>
             <Link
@@ -152,7 +165,11 @@ export default function CartPage() {
       {/* Mobile fixed bottom bar */}
       <div className="fixed bottom-16 left-0 right-0 z-40 flex items-center justify-between border-t border-gold/30 bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden">
         <span className="font-serif font-bold text-maroon">Total: ₹{subtotal.toFixed(0)}</span>
-        <button onClick={() => router.push('/checkout')} className="btn-primary !px-5 !py-2 text-sm">
+        <button
+          onClick={() => router.push('/checkout')}
+          disabled={!shop.is_open}
+          className="btn-primary !px-5 !py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+        >
           Checkout →
         </button>
       </div>

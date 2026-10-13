@@ -46,6 +46,25 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient()
 
+    // Read the flag fresh (not the cached getShopStatus) so an order can't
+    // slip through in the minutes after the admin closes the shop.
+    const { data: shop } = await admin
+      .from('shop_settings')
+      .select('is_open, closed_message')
+      .eq('id', true)
+      .single()
+
+    if (shop && !shop.is_open) {
+      return NextResponse.json(
+        {
+          error:
+            shop.closed_message?.trim() ||
+            "Sorry, the shop is currently closed and isn't taking orders. Please check back later.",
+        },
+        { status: 403 }
+      )
+    }
+
     // Re-fetch city — never trust the client's delivery charge / min order.
     const { data: city, error: cityError } = await admin
       .from('cities')
